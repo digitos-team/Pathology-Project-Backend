@@ -1,113 +1,37 @@
 import * as patientService from "../services/patient.service.js";
+import { asyncHandler } from "../utils/asyncHandler.js";
+import { ApiError } from "../utils/ApiError.js";
+import { ApiResponse } from "../utils/ApiResponse.js";
 
 // Register Patient
-export const createPatient = async (req, res) => {
-  try {
-    console.log("[CONTROLLER] createPatient", {
-      body: req.body,
-      userId: req.user.userId,
-      labId: req.user.labId,
-    });
-
-    const patient = await patientService.createPatient(
-      req.body,
-      req.user.userId,
-      req.user.labId
-    );
-
-    res.status(201).json({
-      message: "Patient registered successfully",
-      data: patient,
-    });
-  } catch (error) {
-    console.error("[ERROR] createPatient", error);
-
-    if (error.code === 11000) {
-      return res.status(400).json({
-        message: "Patient already exists in this lab",
-      });
-    }
-
-    res.status(500).json({ message: error.message });
-  }
-};
+export const createPatient = asyncHandler(async (req, res) => {
+  console.log("[CONTROLLER] createPatient", req.body);
+  const patient = await patientService.createPatient(req.body, req.user.userId);
+  res.status(201).json(new ApiResponse(201, patient, "Patient registered successfully"));
+});
 
 // Get All Patients
-export const getPatients = async (req, res) => {
-  console.log("[CONTROLLER] getPatients", req.user.labId);
-
-  if (!req.user.labId) {
-    console.error("[ERROR] Lab ID missing in user token");
-    return res.status(400).json({ message: "Lab ID missing. Please login again." });
-  }
-
-  const patients = await patientService.getPatientsByLab(req.user.labId);
-  res.json(patients);
-};
-
-
+export const getPatients = asyncHandler(async (req, res) => {
+  const patients = await patientService.getPatientsByLab(req.user.userId);
+  res.status(200).json(new ApiResponse(200, patients, "Patients fetched successfully"));
+});
 
 // Get Patient Profile
-export const getPatientById = async (req, res) => {
-  console.log("[CONTROLLER] getPatientById", req.params.id);
-
-  if (!req.user.labId) {
-    return res.status(400).json({ message: "Lab ID missing in token. Please login again." });
-  }
-
-  const patient = await patientService.getPatientById(
-    req.params.id,
-    req.user.labId
-  );
-
-  if (!patient) {
-    console.warn("[WARN] Patient not found", req.params.id);
-    return res.status(404).json({ message: "Patient not found" });
-  }
-
-  res.json(patient);
-};
+export const getPatientById = asyncHandler(async (req, res) => {
+  const patient = await patientService.getPatientById(req.params.id, req.user.userId);
+  if (!patient) throw new ApiError(404, "Patient not found");
+  res.status(200).json(new ApiResponse(200, patient, "Patient details fetched successfully"));
+});
 
 // Update Patient
-export const updatePatient = async (req, res) => {
-  console.log("[CONTROLLER] updatePatient", {
-    id: req.params.id,
-    body: req.body,
-  });
-
-  if (!req.user.labId) {
-    return res.status(400).json({ message: "Lab ID missing in token. Please login again." });
-  }
-
-  const patient = await patientService.updatePatient(
-    req.params.id,
-    req.user.labId,
-    req.body
-  );
-
-  if (!patient) {
-    console.warn("[WARN] Patient not found for update", req.params.id);
-    return res.status(404).json({ message: "Patient not found" });
-  }
-
-  res.json({
-    message: "Patient updated successfully",
-    data: patient,
-  });
-};
+export const updatePatient = asyncHandler(async (req, res) => {
+  const patient = await patientService.updatePatient(req.params.id, req.user.userId, req.body);
+  if (!patient) throw new ApiError(404, "Patient not found");
+  res.status(200).json(new ApiResponse(200, patient, "Patient updated successfully"));
+});
 
 // Search Patient
-export const searchPatient = async (req, res) => {
-  console.log("[CONTROLLER] searchPatient", req.query);
-
-  if (!req.user.labId) {
-    return res.status(400).json({ message: "Lab ID missing in token. Please login again." });
-  }
-
-  const patients = await patientService.searchPatient(
-    req.user.labId,
-    req.query
-  );
-
-  res.json(patients);
-};
+export const searchPatient = asyncHandler(async (req, res) => {
+  const patients = await patientService.searchPatient(req.user.userId, req.query);
+  res.status(200).json(new ApiResponse(200, patients, "Patients found"));
+});

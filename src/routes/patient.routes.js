@@ -17,23 +17,23 @@ router.use(authMiddleware);
 
 // Register patient
 router.post(
-  "/",
+  "/add",
   authMiddleware,
   createPatient
 );
 
 // Get all patients (lab-wise)
-router.get("/", getPatients);
+router.get("/getallpatient", getPatients);
 
 // Search patient
 router.get("/search", searchPatient);
 
 // Patient profile
-router.get("/:id", getPatientById);
+router.get("/getpatientbyid/:id", getPatientById);
 
 // Update patient
 router.put(
-  "/:id",
+  "updatepatient/:id",
   adminMiddleware,
   updatePatient
 );

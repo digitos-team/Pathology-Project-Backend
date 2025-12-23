@@ -14,7 +14,29 @@ const referenceRangeSchema = new mongoose.Schema(
   { _id: false }
 );
 
-const testSchema = new mongoose.Schema(
+const parameterSchema = new mongoose.Schema(
+  {
+    name: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+
+    unit: {
+      type: String,
+      required: true, // keep it flexible, no enum
+      trim: true,
+    },
+
+    referenceRange: {
+      type: referenceRangeSchema,
+      required: true,
+    },
+  },
+  { _id: false }
+);
+
+const labTestSchema = new mongoose.Schema(
   {
     labId: {
       type: mongoose.Schema.Types.ObjectId,
@@ -42,31 +64,21 @@ const testSchema = new mongoose.Schema(
       ],
     },
 
+    parameters: {
+      type: [parameterSchema],
+      required: true,
+      validate: {
+        validator: function (v) {
+          return Array.isArray(v) && v.length > 0;
+        },
+        message: "At least one parameter is required",
+      },
+    },
+
     price: {
       type: Number,
       required: true,
       min: 0,
-    },
-
-    unit: {
-      type: String,
-      required: true,
-      enum: [
-        "mg/dL",
-        "g/dL",
-        "µIU/mL",
-        "mIU/L",
-        "cells/µL",
-        "lakhs/µL",
-        "mmol/L",
-        "ng/mL",
-        "%",
-      ],
-    },
-
-    referenceRange: {
-      type: referenceRangeSchema,
-      required: true,
     },
 
     isActive: {
@@ -79,5 +91,5 @@ const testSchema = new mongoose.Schema(
   }
 );
 
-const Test = mongoose.model("Test", testSchema);
-export default Test;
+const LabTest = mongoose.model("LabTest", labTestSchema);
+export default LabTest;

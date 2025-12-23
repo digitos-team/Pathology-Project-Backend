@@ -1,30 +1,31 @@
 import express from "express";
 import {
-  createTestReport,
-  getTestReportsByPatient,
-  getTestReportById,
-  updateTestReport,
-  deleteTestReport,
+  assignTestController,
+  submitTestResultController,
+  getPendingTestsController,
+  getPatientReportsController,
+  addHistoricalReportController
 } from "../controllers/testReport.controller.js";
-import { authMiddleware } from "../middleware/user.middleware.js";
+import { authMiddleware, adminMiddleware } from "../middleware/user.middleware.js";
 
 const router = express.Router();
 
+// Protected Routes
 router.use(authMiddleware);
 
-// Create a new report
-router.post("/", createTestReport);
+// Assign Test (Receptionist/Admin)
+router.post("/assign", assignTestController);
 
-// Get all reports for a specific patient
-router.get("/patient/:patientId", getTestReportsByPatient);
+// Add Historical/External Report (Receptionist/Admin)
+router.post("/add-report", addHistoricalReportController);
 
-// Get single report by ID
-router.get("/:id", getTestReportById);
+// Submit Results (Technician/Admin)
+router.put("/result/:reportId", submitTestResultController);
 
-// Update report
-router.put("/:id", updateTestReport);
+// Get Pending Tests (Technician Dashboard)
+router.get("/pending", getPendingTestsController);
 
-// Delete report
-router.delete("/:id", deleteTestReport);
+// Get Patient History
+router.get("/patient/:patientId", getPatientReportsController);
 
 export default router;

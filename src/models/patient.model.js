@@ -2,28 +2,28 @@ import mongoose from "mongoose";
 
 const patientSchema = new mongoose.Schema(
   {
-    userId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
-      required: true,
-      index: true
-    },
-
     labId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "PathologyLab",
       required: true,
-      index: true
+      index: true,
+    },
+
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
     },
 
     fullName: {
       type: String,
       required: true,
-      trim: true
+      trim: true,
     },
 
     phone: {
-      type: String
+      type: String,
+      trim: true,
     },
 
     age: {
@@ -45,23 +45,12 @@ const patientSchema = new mongoose.Schema(
       pincode: String,
     },
 
-    // Medical Records (linked references)
-    testHistory: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "TestReport",
-      },
-    ],
-
-    // Soft delete
     isActive: {
       type: Boolean,
       default: true,
     },
   },
-  {
-    timestamps: true, // createdAt & updatedAt
-  }
+  { timestamps: true }
 );
 
 export default mongoose.model("Patient", patientSchema);

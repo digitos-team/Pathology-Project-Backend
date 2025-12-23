@@ -1,24 +1,14 @@
-// src/validations/test.validation.js
-
 import Joi from "joi";
 
-// shared fields
-const referenceRange = Joi.object({
-  min: Joi.number().required(),
-  max: Joi.number().greater(Joi.ref("min")).required(),
+// Parameters Schema
+const parameterSchema = Joi.object({
+  name: Joi.string().required(),
+  unit: Joi.string().required(),
+  referenceRange: Joi.object({
+    min: Joi.number().required(),
+    max: Joi.number().greater(Joi.ref("min")).required(),
+  }).required(),
 });
-
-const unitEnum = [
-  "mg/dL",
-  "g/dL",
-  "µIU/mL",
-  "mIU/L",
-  "cells/µL",
-  "lakhs/µL",
-  "mmol/L",
-  "ng/mL",
-  "%",
-];
 
 const categoryEnum = [
   "Blood",
@@ -37,10 +27,7 @@ export const createTest = {
       .valid(...categoryEnum)
       .required(),
     price: Joi.number().positive().required(),
-    unit: Joi.string()
-      .valid(...unitEnum)
-      .required(),
-    referenceRange: referenceRange.required(),
+    parameters: Joi.array().items(parameterSchema).min(1).required(),
   }),
 };
 
@@ -52,10 +39,7 @@ export const updateTest = {
       .valid(...categoryEnum)
       .optional(),
     price: Joi.number().positive().optional(),
-    unit: Joi.string()
-      .valid(...unitEnum)
-      .optional(),
-    referenceRange: referenceRange.optional(),
+    parameters: Joi.array().items(parameterSchema).min(1).optional(),
     isActive: Joi.boolean().optional(),
   }),
 };

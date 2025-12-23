@@ -1,75 +1,117 @@
 import TestReport from "../models/testReport.model.js";
 import Patient from "../models/patient.model.js";
+import LabTest from "../models/labtest.model.js";
+// Dynamic import for Doctor to avoid circular dependency issues if any
+const getDoctorModel = async () => (await import("../models/doctor.model.js")).default;
 import { ApiError } from "../utils/ApiError.js";
 
-// Helper to verify patient belongs to lab
-const verifyPatientOwnership = async (patientId, labId) => {
-  const patient = await Patient.findOne({ _id: patientId, labId }); // Find patient by ID
-  if (!patient) {
-    throw new ApiError(404, "Patient not found in your lab"); // If patient not found
+// 1. Assign Tests
+export const assignTestsToPatient = async ({ patientId, testIds, doctorId, labId }) => {
+  // Validate Patient
+  const patient = await Patient.findById(patientId);
+  if (!patient) throw new ApiError(404, "Patient not found");
+
+  // Validate Doctor
+  const Doctor = await getDoctorModel();
+  const doctor = await Doctor.findById(doctorId);
+  if (!doctor) throw new ApiError(404, "Doctor not found");
+
+  const reports = [];
+  let totalAmount = 0;
+  const testsInfo = [];
+
+  for (const testId of testIds) {
+    const labTest = await LabTest.findById(testId);
+    if (!labTest) {
+      throw new ApiError(404, `Test with ID ${testId} not found`);
+    }
+
+    const initialResults = labTest.parameters.map(param => ({
+      parameterName: param.name,
+      value: "",
+      unit: param.unit,
+      referenceRange: param.referenceRange
+    }));
+
+    const testReport = await TestReport.create({
+      patientId,
+      testId,
+      labId,
+      testName: labTest.testName,
+      testDate: new Date(),
+      status: "PENDING",
+      results: initialResults,
+      doctor: doctorId
+    });
+
+    reports.push(testReport);
+    totalAmount += labTest.price;
+    testsInfo.push({ name: labTest.testName, price: labTest.price });
   }
-  return patient;
-};
 
-export const createTestReport = async (data, labId) => {
-  // 1. Verify Patient exists in this Lab
-  await verifyPatientOwnership(data.patientId, labId);
-
-  // 2. Create Report
-  const report = await TestReport.create(data);
-  console.log("[SERVICE] createTestReport", report);
-
-  // 3. Link Report to Patient
-  await Patient.findByIdAndUpdate(data.patientId, {
-    $push: { testHistory: report._id },
+  // Generate invoice
+  const invoiceService = await import("./invoice.service.js");
+  const invoice = await invoiceService.generateInvoice({
+    patientId,
+    doctorId,
+    testReports: reports.map(r => r._id),
+    items: testsInfo,
+    totalAmount,
+    labId,
   });
 
+  return { reports, totalAmount, breakdown: testsInfo, invoice };
+};
+
+// 2. Add Historical Report
+export const addHistoricalReport = async ({ patientId, testName, doctorName, testDate, reportFileUrl, labId, testId }) => {
+  const report = await TestReport.create({
+    patientId,
+    testId, // Optional
+    labId,
+    testName,
+    testDate: testDate || new Date(),
+    status: "COMPLETED",
+    results: [],
+    reportFileUrl,
+    doctorName: doctorName || "External",
+  });
   return report;
 };
 
-export const getTestReportsByPatient = async (patientId, labId) => {
-   // 1. Verify patient belongs to lab
-  await verifyPatientOwnership(patientId, labId);
-  console.log("[SERVICE] getTestReportsByPatient", patientId, labId);
-  // 2. Get Reports
-  const reports = await TestReport.find({ patientId }).sort({ createdAt: -1 }); // Get reports for patient
-  console.log("[SERVICE] getTestReportsByPatient", reports);
+// 3. Submit Results
+export const submitTestResults = async (reportId, { results, reportFileUrl }) => {
+  const report = await TestReport.findById(reportId);
+  if (!report) throw new ApiError(404, "Test Report not found");
+  if (report.status === "COMPLETED") throw new ApiError(400, "Test is already completed");
 
-  return reports;
-};
-
-export const getTestReportById = async (reportId, labId) => {
-  const report = await TestReport.findById(reportId).populate("patientId"); // Find report by ID
-
-  if (!report) {
-    throw new ApiError(404, "Test report not found"); // If report not found
-  }
-  console.log("[SERVICE] getTestReportById", report);
-
-  // Security Check: Ensure the patient associated with this report belongs to the requesting lab
-  if (report.patientId.labId.toString() !== labId.toString()) {
-    throw new ApiError(403, "Access denied");
+  if (results && Array.isArray(results)) {
+    results.forEach(inputResult => {
+      const paramIndex = report.results.findIndex(r => r.parameterName === inputResult.parameterName);
+      if (paramIndex !== -1) {
+        report.results[paramIndex].value = inputResult.value;
+      }
+    });
   }
 
+  if (reportFileUrl) report.reportFileUrl = reportFileUrl;
 
-  return report;
-};
-
-export const updateTestReport = async (reportId, labId, updateData) => {
-  const report = await getTestReportById(reportId, labId); // Get report by ID
-
-  Object.assign(report, updateData); // Update report with new data
-
+  report.status = "COMPLETED";
   await report.save();
-  console.log("[SERVICE] updateTestReport", report);
-
   return report;
 };
 
-export const deleteTestReport = async (reportId, labId) => {
-  const report = await getTestReportById(reportId, labId); // Get report by ID
-  await report.deleteOne(); // Delete report
-  console.log("[SERVICE] deleteTestReport", report);
+// 4. Get Pending Tests
+export const getPendingTests = async (labId) => {
+  return await TestReport.find({ labId, status: "PENDING" })
+    .populate("patientId", "fullName phone age gender")
+    .populate("doctor", "name")
+    .sort({ testDate: 1 });
+};
 
-  return { message: "Report deleted successfully" };
+// 5. Get Patient Reports
+export const getPatientReports = async (patientId, labId) => {
+  return await TestReport.find({ patientId, labId })
+    .populate("doctor", "name")
+    .sort({ testDate: -1 });
 };
