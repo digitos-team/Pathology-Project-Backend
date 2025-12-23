@@ -15,13 +15,27 @@ const expenseSchema = new mongoose.Schema(
         category: {
             type: String,
             required: true,
-            enum: ['COMMISSION', 'RENT', 'UTILITY', 'INVENTORY', 'SALARY', 'OTHER'],
-            default: 'OTHER'
+            enum: ['LAB_MATERIALS', 'SALARY', 'COMMISSION', 'UTILITY', 'RENT', 'MISCELLANEOUS'],
+            default: 'MISCELLANEOUS'
         },
         description: {
             type: String,
             trim: true
         },
+        // Fields specific to LAB_MATERIALS
+        quantity: {
+            type: Number,
+            min: 0
+        },
+        unit: {
+            type: String, // e.g., "Box", "Liters", "Pcs"
+            trim: true
+        },
+        supplier: {
+            type: String,
+            trim: true
+        },
+
         date: {
             type: Date,
             default: Date.now
@@ -34,11 +48,17 @@ const expenseSchema = new mongoose.Schema(
             required: true
         },
 
-        // Optional: Link to Doctor if this is a commission expense
+        // Optional: Link to Doctor if this is a commission expense (Reserved for future)
         doctor: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "Doctor",
             required: false
+        },
+
+        // Receipt Image/PDF URL (Local path)
+        receiptUrl: {
+            type: String,
+            trim: true
         }
     },
     { timestamps: true }

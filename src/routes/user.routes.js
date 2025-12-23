@@ -3,7 +3,8 @@ import {
     registerUserController,
     updateUserController,
     updateLabDetailsController,
-    loginController
+    loginController,
+    deleteReceptionistController
 } from "../controllers/user.controller.js";
 import { authMiddleware, adminMiddleware, optionalAuthMiddleware } from "../middleware/user.middleware.js";
 
@@ -32,11 +33,17 @@ router.put("/lab-details",
 // router.post("/register-user", authMiddleware, adminMiddleware, registerUserController);
 
 // Profile updates
+// Profile updates
 router.put("/update-profile", authMiddleware, adminMiddleware, updateUserController);
 
+// Delete Receptionist
+router.delete("/delete-receptionist/:userId", authMiddleware, adminMiddleware, deleteReceptionistController);
 
-// Logout route (placeholder)
+
+
+// Logout route
 router.post("/logout", authMiddleware, (req, res) => {
+    res.clearCookie("accessToken");
     res.json({
         success: true,
         message: "Logged out successfully"

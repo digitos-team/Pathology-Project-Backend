@@ -3,7 +3,8 @@ import {
     addDoctorController,
     updateDoctorController,
     getAllDoctorsController,
-    getDoctorCommissionReportController
+    getDoctorCommissionReportController,
+    deleteDoctorController
 } from "../controllers/doctor.controller.js";
 import { authMiddleware, adminMiddleware } from "../middleware/user.middleware.js";
 
@@ -16,5 +17,6 @@ router.post("/add", addDoctorController);
 router.put("/update/:doctorId", updateDoctorController);
 router.get("/all", getAllDoctorsController);
 router.get("/reports/:doctorId", getDoctorCommissionReportController);
+router.delete("/:doctorId", deleteDoctorController);
 
 export default router;

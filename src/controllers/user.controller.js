@@ -48,7 +48,18 @@ export const loginController = asyncHandler(async (req, res) => {
   validateLoginRequest(req.body);
   const { email, password } = req.body;
   const result = await authService.loginUser(email, password);
-  res.json(new ApiResponse(200, result, "Login successful"));
+
+  const options = {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    sameSite: process.env.NODE_ENV === "production" ? "None" : "Lax" // Helpful for some cross-origin setups
+  };
+
+  res
+    .status(200)
+    .cookie("accessToken", result.token, options)
+    .json(new ApiResponse(200, result, "Login successful"));
 });
 
 export const updateUserController = asyncHandler(async (req, res) => {
@@ -61,4 +72,16 @@ export const updateLabDetailsController = asyncHandler(async (req, res) => {
   const adminId = req.user.userId;
   const updatedLab = await userService.updateLabDetailsService(adminId, req.body);
   res.json(new ApiResponse(200, updatedLab, "Lab details updated successfully"));
+});
+
+export const deleteReceptionistController = asyncHandler(async (req, res) => {
+  const { userId } = req.params;
+
+  // Optional: Verify role is RECEPTIONIST before deleting to be safe
+  // const user = await userService.getUserById(userId); // Assuming this service exists or we just rely on delete
+  // if (user && user.role !== 'RECEPTIONIST') ... 
+
+  await userService.deleteUserService(userId);
+
+  res.json(new ApiResponse(200, {}, "Receptionist deleted successfully"));
 });

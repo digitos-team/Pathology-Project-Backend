@@ -27,27 +27,35 @@ export const registerUserService = async ({ name, email, password, role, created
 
 
 export const updateUserService = async (userId, { name, email, password }) => {
-    const updateData = {};
-    if (name) updateData.name = name;
-    if (email) updateData.email = email;
-    if (password) {
-        updateData.password = await bcrypt.hash(password, 10);
-    }
+  const updateData = {};
+  if (name) updateData.name = name;
+  if (email) updateData.email = email;
+  if (password) {
+    updateData.password = await bcrypt.hash(password, 10);
+  }
 
-    const user = await User.findByIdAndUpdate(userId, updateData, { new: true }).select('-password');
-    if (!user) throw new ApiError(404, 'User not found');
+  const user = await User.findByIdAndUpdate(userId, updateData, { new: true }).select('-password');
+  if (!user) throw new ApiError(404, 'User not found');
 
-    return user;
+  return user;
 };
 
 export const updateLabDetailsService = async (adminId, updateData) => {
-    const updateOps = { ...updateData, owner: adminId };
+  const updateOps = { ...updateData, owner: adminId };
 
-    const lab = await PathologyLab.findOneAndUpdate(
-        {},
-        updateOps,
-        { new: true, upsert: true, setDefaultsOnInsert: true }
-    );
+  const lab = await PathologyLab.findOneAndUpdate(
+    {},
+    updateOps,
+    { new: true, upsert: true, setDefaultsOnInsert: true }
+  );
 
-    return lab;
+  return lab;
+};
+
+export const deleteUserService = async (userId) => {
+  const user = await User.findByIdAndDelete(userId);
+  if (!user) {
+    throw new ApiError(404, "User not found");
+  }
+  return user;
 };

@@ -69,3 +69,11 @@ export const getDoctorCommissionReportService = async (doctorId, type) => {
 
     return report;
 };
+
+export const deleteDoctorService = async (doctorId) => {
+    const doctor = await Doctor.findByIdAndDelete(doctorId);
+    if (!doctor) {
+        throw new ApiError(404, "Doctor not found");
+    }
+    return doctor;
+};

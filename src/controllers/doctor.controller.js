@@ -4,7 +4,8 @@ import {
     createDoctorService,
     updateDoctorService,
     getAllDoctorsService,
-    getDoctorCommissionReportService
+    getDoctorCommissionReportService,
+    deleteDoctorService
 } from "../services/doctor.services.js";
 
 // 1. Add Doctor
@@ -50,4 +51,13 @@ export const getDoctorCommissionReportController = asyncHandler(async (req, res)
     const report = await getDoctorCommissionReportService(doctorId, type);
 
     res.json(new ApiResponse(200, report, `${type} commission report fetched successfully`));
+});
+
+// 5. Delete Doctor
+export const deleteDoctorController = asyncHandler(async (req, res) => {
+    const { doctorId } = req.params;
+
+    await deleteDoctorService(doctorId);
+
+    res.json(new ApiResponse(200, {}, "Doctor deleted successfully"));
 });
