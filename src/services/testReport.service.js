@@ -97,10 +97,7 @@ export const submitTestResults = async (orderId, testItemId, { results, reportFi
 
   if (!testItem) throw new ApiError(404, "Test not found in this order");
 
-  // Allow updating even if completed (corrections)
-  // if (testItem.status === "COMPLETED") {
-  //   throw new ApiError(400, "Test is already completed");
-  // }
+  
 
   if (results && Array.isArray(results)) {
     results.forEach(inputResult => {
@@ -208,6 +205,10 @@ export const submitBulkResultsByBill = async (billId, { results, reportFileUrl }
 // 7. Finalize Test Order (unchanged - good!)
 export const finalizeTestOrder = async (orderId) => {
   const order = await TestOrder.findById(orderId);
+
+  if (!order) {
+    throw new ApiError(404, "Test Order not found");
+  }
 
   if (order.overallStatus !== "COMPLETED") {
     throw new ApiError(400, "Cannot finalize - not all tests completed");

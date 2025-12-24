@@ -15,7 +15,7 @@ export const calculateAndRecordCommission = async ({ doctorId, doctorCommissionP
         doctor: doctorId,
         date: new Date(),
         description: `Commission for Bill ${billId}`,
-        labId,
+        lab: labId,
     });
 
     return {
