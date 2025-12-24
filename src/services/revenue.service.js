@@ -2,11 +2,11 @@ import Revenue from "../models/revenue.model.js";
 import { ApiError } from "../utils/ApiError.js";
 
 // Record revenue after payment
-export const recordRevenue = async ({ invoiceId, totalAmount, commissionAmount, labId }) => {
+export const recordRevenue = async ({ billId, totalAmount, commissionAmount, labId }) => {
     const netRevenue = totalAmount - commissionAmount;
 
     const revenue = await Revenue.create({
-        invoiceId,
+        billId,
         totalAmount,
         commissionAmount,
         netRevenue,

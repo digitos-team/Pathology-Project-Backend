@@ -1,14 +1,22 @@
 import Bill from "../models/bill.model.js";
 import { ApiError } from "../utils/ApiError.js";
 
-// Generate bill after payment
-export const generateBill = async ({ invoiceId, paymentId, patientId, totalAmount, labId }) => {
+// Generate bill (Pending or Paid)
+export const generateBill = async ({ patientId, testReports, items, totalAmount, labId, paymentId }) => {
+    // Generate Bill Number
+    const count = await Bill.countDocuments();
+    const billNumber = `BILL-${Date.now()}-${count + 1}`;
+
     const bill = await Bill.create({
-        invoiceId,
-        paymentId,
+        billNumber,
         patientId,
+        testReports,
+        items,
         totalAmount,
         labId,
+        // Optional paymentId
+        paymentId,
+        status: paymentId ? "PAID" : "PENDING"
     });
 
     return bill;
@@ -17,7 +25,6 @@ export const generateBill = async ({ invoiceId, paymentId, patientId, totalAmoun
 // Get bill by ID
 export const getBillById = async (billId) => {
     const bill = await Bill.findById(billId)
-        .populate("invoiceId")
         .populate("paymentId")
         .populate("patientId", "fullName phone age gender");
 
@@ -31,7 +38,6 @@ export const getBillById = async (billId) => {
 // Get bills for a patient
 export const getPatientBills = async (patientId, labId) => {
     return await Bill.find({ patientId, labId })
-        .populate("invoiceId")
         .sort({ createdAt: -1 });
 };
 
@@ -39,6 +45,5 @@ export const getPatientBills = async (patientId, labId) => {
 export const getLabBills = async (labId) => {
     return await Bill.find({ labId })
         .populate("patientId", "fullName phone")
-        .populate("invoiceId")
         .sort({ createdAt: -1 });
 };

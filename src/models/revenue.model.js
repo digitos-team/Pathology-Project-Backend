@@ -2,9 +2,9 @@ import mongoose from "mongoose";
 
 const revenueSchema = new mongoose.Schema(
     {
-        invoiceId: {
+        billId: {
             type: mongoose.Schema.Types.ObjectId,
-            ref: "Invoice",
+            ref: "Bill",
             required: true,
         },
         totalAmount: {

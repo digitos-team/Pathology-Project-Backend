@@ -3,18 +3,18 @@ import Doctor from "../models/doctor.model.js";
 import { ApiError } from "../utils/ApiError.js";
 
 // Calculate commission and create expense entry
-export const calculateAndRecordCommission = async ({ doctorId, doctorCommissionPercent, totalAmount, invoiceId, labId }) => {
+export const calculateAndRecordCommission = async ({ doctorId, doctorCommissionPercent, totalAmount, billId, labId }) => {
     // Calculate commission amount
     const commissionAmount = (totalAmount * doctorCommissionPercent) / 100;
 
     // Create expense entry for commission
     const expense = await Expense.create({
-        title: `Doctor Commission - Invoice`,
+        title: `Doctor Commission - Bill`,
         amount: commissionAmount,
         category: "COMMISSION",
         doctor: doctorId,
         date: new Date(),
-        description: `Commission for Invoice ${invoiceId}`,
+        description: `Commission for Bill ${billId}`,
         labId,
     });
 
