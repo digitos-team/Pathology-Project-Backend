@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import User from '../models/user.model.js';
 import PathologyLab from '../models/pathologyLab.model.js';
 import { ApiError } from '../utils/ApiError.js';
+
 export const registerUserService = async ({ name, email, password, role, createdBy }) => {
   const existing = await User.findOne({ email });
   if (existing) throw new ApiError(400, 'User with this email already exists');
@@ -40,7 +41,7 @@ export const updateUserService = async (userId, { name, email, password }) => {
   return user;
 };
 
-export const updateLabDetailsService = async (adminId, updateData) => {
+export const createOrupdateLabDetailsService = async (adminId, updateData) => {
   const updateOps = { ...updateData, owner: adminId };
 
   const lab = await PathologyLab.findOneAndUpdate(

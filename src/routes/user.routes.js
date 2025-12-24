@@ -2,7 +2,7 @@ import express from "express";
 import {
     registerUserController,
     updateUserController,
-    updateLabDetailsController,
+    createOrupdateLabDetailsController,
     loginController,
     deleteReceptionistController
 } from "../controllers/user.controller.js";
@@ -27,7 +27,7 @@ router.post("/register", optionalAuthMiddleware, registerUserController);
 router.put("/lab-details",
     authMiddleware,
     adminMiddleware,
-    updateLabDetailsController);
+    createOrupdateLabDetailsController);
 
 // Unified User Registration (Admin creates other admins or receptionists)
 // router.post("/register-user", authMiddleware, adminMiddleware, registerUserController);
