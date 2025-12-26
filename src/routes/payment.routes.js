@@ -1,7 +1,7 @@
 import express from "express";
 import {
     recordPaymentController,
-    getInvoicePaymentsController,
+    getBillPaymentsController,
     getLabPaymentsController,
 } from "../controllers/payment.controller.js";
 import { authMiddleware } from "../middleware/user.middleware.js";
@@ -13,8 +13,8 @@ router.use(authMiddleware);
 // Record payment
 router.post("/record", recordPaymentController);
 
-// Get payments for invoice
-router.get("/invoice/:invoiceId", getInvoicePaymentsController);
+// Get payments for bill
+router.get("/bill/:billId", getBillPaymentsController);
 
 // Get all lab payments
 router.get("/", getLabPaymentsController);

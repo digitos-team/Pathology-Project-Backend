@@ -1,41 +1,43 @@
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
-import * as testReportService from "../services/testReport.service.js";
+import * as testOrderService from "../services/testReport.service.js";
 
-// 1. Assign Test to Patient (Create Pending Report)
-export const assignTestController = asyncHandler(async (req, res) => {
+/**
+ * 1. Create Test Order (assign multiple tests)
+ */
+export const createTestOrderController = asyncHandler(async (req, res) => {
   const { patientId, testIds, doctorId } = req.body;
   const labId = req.user.labId;
 
-  if (!patientId || !testIds || !doctorId) {
-    throw new ApiError(400, "Patient ID, Test IDs (array), and Doctor ID are required");
+  if (!patientId || !doctorId || !Array.isArray(testIds) || testIds.length === 0) {
+    throw new ApiError(400, "patientId, doctorId and non-empty testIds are required");
   }
 
-  if (!Array.isArray(testIds) || testIds.length === 0) {
-    throw new ApiError(400, "testIds must be a non-empty array");
-  }
-
-  const result = await testReportService.assignTestsToPatient({
+  const data = await testOrderService.createTestOrder({
     patientId,
     testIds,
     doctorId,
     labId
   });
 
-  res.status(201).json(new ApiResponse(201, result, "Tests assigned successfully"));
+  res.status(201).json(
+    new ApiResponse(201, data, "Test order created successfully")
+  );
 });
 
-// 1.1 Upload Historical Report
+/**
+ * 2. Add historical report
+ */
 export const addHistoricalReportController = asyncHandler(async (req, res) => {
-  const { patientId, testName, doctorName, testDate, reportFileUrl, testId } = req.body;
+  const { patientId, testName, reportFileUrl, doctorName, testDate, testId } = req.body;
   const labId = req.user.labId;
 
   if (!patientId || !testName || !reportFileUrl) {
-    throw new ApiError(400, "Patient ID, Test Name, and Report File URL are required");
+    throw new ApiError(400, "patientId, testName and reportFileUrl are required");
   }
 
-  const report = await testReportService.addHistoricalReport({
+  const report = await testOrderService.addHistoricalReport({
     patientId,
     testName,
     doctorName,
@@ -45,31 +47,94 @@ export const addHistoricalReportController = asyncHandler(async (req, res) => {
     testId
   });
 
-  res.status(201).json(new ApiResponse(201, report, "Historical report added successfully"));
+  res.status(201).json(
+    new ApiResponse(201, report, "Historical report added")
+  );
 });
 
-// 2. Submit Test Results
+/**
+ * 3. Submit result for ONE test inside an order
+ */
 export const submitTestResultController = asyncHandler(async (req, res) => {
-  const { reportId } = req.params;
+  const { orderId, testItemId } = req.params;
   const { results, reportFileUrl } = req.body;
 
-  const report = await testReportService.submitTestResults(reportId, { results, reportFileUrl });
+  if (!orderId || !testItemId) {
+    throw new ApiError(400, "orderId and testItemId are required");
+  }
 
-  res.status(200).json(new ApiResponse(200, report, "Test results submitted successfully"));
+  const order = await testOrderService.submitTestResults(
+    orderId,
+    testItemId,
+    { results, reportFileUrl }
+  );
+
+  res.status(200).json(
+    new ApiResponse(200, order, "Test result submitted")
+  );
 });
 
-// 3. Get Pending Tests
-export const getPendingTestsController = asyncHandler(async (req, res) => {
+/**
+ * 4. Get pending orders
+ */
+export const getPendingOrdersController = asyncHandler(async (req, res) => {
   const labId = req.user.labId;
-  const pendingTests = await testReportService.getPendingTests(labId);
-  res.status(200).json(new ApiResponse(200, pendingTests, "Pending tests fetched successfully"));
+
+  const orders = await testOrderService.getPendingOrders(labId);
+
+  res.status(200).json(
+    new ApiResponse(200, orders, "Pending orders fetched")
+  );
 });
 
-// 4. Get Patient Reports
-export const getPatientReportsController = asyncHandler(async (req, res) => {
+/**
+ * 5. Get patient history (orders + reports)
+ */
+export const getPatientTestHistoryController = asyncHandler(async (req, res) => {
   const { patientId } = req.params;
   const labId = req.user.labId;
 
-  const reports = await testReportService.getPatientReports(patientId, labId);
-  res.status(200).json(new ApiResponse(200, reports, "Patient reports fetched successfully"));
+  if (!patientId) {
+    throw new ApiError(400, "patientId is required");
+  }
+
+  const data = await testOrderService.getPatientTestHistory(patientId, labId);
+
+  res.status(200).json(
+    new ApiResponse(200, data, "Patient test history fetched")
+  );
+});
+
+/**
+ * 6. Bulk submit results via bill
+ */
+export const submitBulkResultsController = asyncHandler(async (req, res) => {
+  const { billId } = req.params;
+  const { results, reportFileUrl } = req.body;
+
+  if (!billId) {
+    throw new ApiError(400, "billId is required");
+  }
+
+  const order = await testOrderService.submitBulkResultsByBill(
+    billId,
+    { results, reportFileUrl }
+  );
+
+  res.status(200).json(
+    new ApiResponse(200, order, "Bulk results submitted")
+  );
+});
+
+/**
+ * 7. Finalize order → generate reports
+ */
+export const finalizeTestOrderController = asyncHandler(async (req, res) => {
+  const { orderId } = req.params;
+
+  const reports = await testOrderService.finalizeTestOrder(orderId);
+
+  res.status(200).json(
+    new ApiResponse(200, reports, "Order finalized and reports generated")
+  );
 });

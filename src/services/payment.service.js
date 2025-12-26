@@ -1,62 +1,61 @@
 import Payment from "../models/payment.model.js";
-import Invoice from "../models/invoice.model.js";
+import Bill from "../models/bill.model.js";
 import { ApiError } from "../utils/ApiError.js";
-import * as billService from "./bill.service.js";
 import * as commissionService from "./commission.service.js";
 import * as revenueService from "./revenue.service.js";
 
 // Record payment and trigger downstream processes
-export const recordPayment = async ({ invoiceId, amount, paymentMethod, transactionId, labId }) => {
-    // Validate invoice
-    const invoice = await Invoice.findById(invoiceId).populate("doctorId");
-    if (!invoice) {
-        throw new ApiError(404, "Invoice not found");
+export const recordPayment = async ({ billId, amount, paymentMethod, transactionId, labId }) => {
+    // Validate bill
+    const bill = await Bill.findById(billId)
+        .populate({
+            path: 'testOrderId',
+            populate: { path: 'doctor' }
+        });
+
+    if (!bill) {
+        throw new ApiError(404, "Bill not found");
     }
 
-    if (invoice.status === "PAID") {
-        throw new ApiError(400, "Invoice already paid");
+    if (bill.status === "PAID") {
+        throw new ApiError(400, "Bill already paid");
     }
 
-    if (invoice.status === "CANCELLED") {
-        throw new ApiError(400, "Cannot pay cancelled invoice");
+    if (bill.status === "CANCELLED") {
+        throw new ApiError(400, "Cannot pay cancelled bill");
     }
 
     // Create payment record
     const payment = await Payment.create({
-        invoiceId,
+        billId,
         amount,
         paymentMethod,
         transactionId,
         labId,
     });
 
-    // Update invoice status
-    invoice.status = "PAID";
-    await invoice.save();
+    // Update bill status
+    bill.status = "PAID";
+    bill.paymentId = payment._id;
+    await bill.save();
 
-    // Generate bill
-    const bill = await billService.generateBill({
-        invoiceId: invoice._id,
-        paymentId: payment._id,
-        patientId: invoice.patientId,
-        totalAmount: invoice.totalAmount,
-        labId,
-    });
-
-    // Calculate and record commission
-    const commission = await commissionService.calculateAndRecordCommission({
-        doctorId: invoice.doctorId._id,
-        doctorCommissionPercent: invoice.doctorId.commissionPercentage,
-        totalAmount: invoice.totalAmount,
-        invoiceId: invoice._id,
-        labId,
-    });
+    // Calculate and record commission (if doctor exists)
+    let commission = null;
+    if (bill.testOrderId?.doctor) {
+        commission = await commissionService.calculateAndRecordCommission({
+            doctorId: bill.testOrderId.doctor._id,
+            doctorCommissionPercent: bill.testOrderId.doctor.commissionPercentage || 0,
+            totalAmount: bill.totalAmount,
+            billId: bill._id,
+            labId,
+        });
+    }
 
     // Record revenue
     const revenue = await revenueService.recordRevenue({
-        invoiceId: invoice._id,
-        totalAmount: invoice.totalAmount,
-        commissionAmount: commission.amount,
+        billId: bill._id,
+        totalAmount: bill.totalAmount,
+        commissionAmount: commission?.amount || 0,
         labId,
     });
 
@@ -68,14 +67,14 @@ export const recordPayment = async ({ invoiceId, amount, paymentMethod, transact
     };
 };
 
-// Get payments for an invoice
-export const getPaymentsByInvoice = async (invoiceId) => {
-    return await Payment.find({ invoiceId }).sort({ createdAt: -1 });
+// Get payments for a bill
+export const getPaymentsByBill = async (billId) => {
+    return await Payment.find({ billId }).sort({ createdAt: -1 });
 };
 
 // Get all payments for a lab
 export const getLabPayments = async (labId) => {
     return await Payment.find({ labId })
-        .populate("invoiceId")
+        .populate("billId")
         .sort({ createdAt: -1 });
 };

@@ -1,24 +1,23 @@
 import TestReport from "../models/testReport.model.js";
+// ✅ ADDED
 import Patient from "../models/patient.model.js";
 import LabTest from "../models/labtest.model.js";
-// Dynamic import for Doctor to avoid circular dependency issues if any
+import Bill from "../models/bill.model.js";
 const getDoctorModel = async () => (await import("../models/doctor.model.js")).default;
 import { ApiError } from "../utils/ApiError.js";
+import TestOrder from "../models/testorder.model.js";
 
-// 1. Assign Tests
-export const assignTestsToPatient = async ({ patientId, testIds, doctorId, labId }) => {
-  // Validate Patient
+// 1. Create Test Order
+export const createTestOrder = async ({ patientId, testIds, doctorId, labId }) => {
   const patient = await Patient.findById(patientId);
   if (!patient) throw new ApiError(404, "Patient not found");
 
-  // Validate Doctor
   const Doctor = await getDoctorModel();
   const doctor = await Doctor.findById(doctorId);
   if (!doctor) throw new ApiError(404, "Doctor not found");
 
-  const reports = [];
+  const tests = [];
   let totalAmount = 0;
-  const testsInfo = [];
 
   for (const testId of testIds) {
     const labTest = await LabTest.findById(testId);
@@ -33,41 +32,46 @@ export const assignTestsToPatient = async ({ patientId, testIds, doctorId, labId
       referenceRange: param.referenceRange
     }));
 
-    const testReport = await TestReport.create({
-      patientId,
-      testId,
-      labId,
+    tests.push({
+      testId: labTest._id,
       testName: labTest.testName,
-      testDate: new Date(),
+      price: labTest.price,
       status: "PENDING",
-      results: initialResults,
-      doctor: doctorId
+      results: initialResults
     });
 
-    reports.push(testReport);
     totalAmount += labTest.price;
-    testsInfo.push({ name: labTest.testName, price: labTest.price });
   }
 
-  // Generate invoice
-  const invoiceService = await import("./invoice.service.js");
-  const invoice = await invoiceService.generateInvoice({
+  const testOrder = await TestOrder.create({
     patientId,
-    doctorId,
-    testReports: reports.map(r => r._id),
-    items: testsInfo,
+    labId,
+    doctor: doctorId,
+    tests,
+    totalAmount,
+    overallStatus: "PENDING"
+  });
+
+  const billService = await import("./bill.service.js");
+  const bill = await billService.generateBill({
+    patientId,
+    testOrderId: testOrder._id,
+    items: tests.map(t => ({ name: t.testName, price: t.price })),
     totalAmount,
     labId,
   });
 
-  return { reports, totalAmount, breakdown: testsInfo, invoice };
+  testOrder.billId = bill._id;
+  await testOrder.save();
+
+  return { testOrder, bill };
 };
 
-// 2. Add Historical Report
+// 2. Add Historical Report (unchanged - still uses TestReport)
 export const addHistoricalReport = async ({ patientId, testName, doctorName, testDate, reportFileUrl, labId, testId }) => {
   const report = await TestReport.create({
     patientId,
-    testId, // Optional
+    testId,
     labId,
     testName,
     testDate: testDate || new Date(),
@@ -79,39 +83,152 @@ export const addHistoricalReport = async ({ patientId, testName, doctorName, tes
   return report;
 };
 
-// 3. Submit Results
-export const submitTestResults = async (reportId, { results, reportFileUrl }) => {
-  const report = await TestReport.findById(reportId);
-  if (!report) throw new ApiError(404, "Test Report not found");
-  if (report.status === "COMPLETED") throw new ApiError(400, "Test is already completed");
+// 3. Submit Results for Individual Test
+export const submitTestResults = async (orderId, testItemId, { results, reportFileUrl }) => {
+  const order = await TestOrder.findById(orderId);
+  if (!order) throw new ApiError(404, "Test Order not found");
+
+  let testItem = order.tests.id(testItemId);
+
+  // If not found by subdocument ID, try finding by the LabTest ID (reference)
+  if (!testItem) {
+    testItem = order.tests.find(t => t.testId.toString() === testItemId);
+  }
+
+  if (!testItem) throw new ApiError(404, "Test not found in this order");
+
+  
 
   if (results && Array.isArray(results)) {
     results.forEach(inputResult => {
-      const paramIndex = report.results.findIndex(r => r.parameterName === inputResult.parameterName);
+      const paramIndex = testItem.results.findIndex(
+        r => r.parameterName.trim().toLowerCase() === inputResult.parameterName.trim().toLowerCase()
+      );
       if (paramIndex !== -1) {
-        report.results[paramIndex].value = inputResult.value;
+        testItem.results[paramIndex].value = inputResult.value;
       }
     });
   }
 
-  if (reportFileUrl) report.reportFileUrl = reportFileUrl;
+  if (reportFileUrl) testItem.reportFileUrl = reportFileUrl;
+  testItem.status = "COMPLETED";
 
-  report.status = "COMPLETED";
-  await report.save();
-  return report;
+  const allCompleted = order.tests.every(t => t.status === "COMPLETED");
+  const anyCompleted = order.tests.some(t => t.status === "COMPLETED");
+
+  order.overallStatus = allCompleted ? "COMPLETED" : (anyCompleted ? "PARTIAL" : "PENDING");
+
+  await order.save();
+  return order;
 };
 
-// 4. Get Pending Tests
-export const getPendingTests = async (labId) => {
-  return await TestReport.find({ labId, status: "PENDING" })
+// 4. Get Pending Test Orders ✅ FIXED
+export const getPendingOrders = async (labId) => {
+  return await TestOrder.find({
+    labId,
+    overallStatus: { $in: ["PENDING", "PARTIAL"] }
+  })
     .populate("patientId", "fullName phone age gender")
     .populate("doctor", "name")
-    .sort({ testDate: 1 });
+    .sort({ orderDate: 1 });
 };
 
-// 5. Get Patient Reports
+export const getPatientTestHistory = async (patientId, labId) => {
+  const orders = await TestOrder.find({ patientId, labId })
+    .populate("doctor", "name")
+    .sort({ orderDate: -1 });
+
+  const reports = await TestReport.find({ patientId, labId })
+    .populate("doctor", "name")
+    .sort({ testDate: -1 });
+
+  return { orders, reports };
+};
+// 5. Get Patient Orders (active/recent) ✅ NEW
+export const getPatientOrders = async (patientId, labId) => {
+  return await TestOrder.find({ patientId, labId })
+    .populate("doctor", "name")
+    .sort({ orderDate: -1 });
+};
+
+// 5b. Get Patient Reports (historical/finalized) ✅ KEPT
 export const getPatientReports = async (patientId, labId) => {
   return await TestReport.find({ patientId, labId })
     .populate("doctor", "name")
     .sort({ testDate: -1 });
+};
+
+// 6. Bulk Submit Results by Bill ✅ UPDATED
+export const submitBulkResultsByBill = async (billId, { results, reportFileUrl }) => {
+  const bill = await Bill.findById(billId);
+  if (!bill) throw new ApiError(404, "Bill not found");
+
+  const order = await TestOrder.findById(bill.testOrderId);
+  if (!order) throw new ApiError(404, "Test Order not found for this bill");
+
+  let anyUpdated = false;
+
+  order.tests.forEach(testItem => {
+    if (testItem.status === "COMPLETED") return;
+
+    results?.forEach(inputResult => {
+      const paramIndex = testItem.results.findIndex(
+        r => r.parameterName === inputResult.parameterName
+      );
+      if (paramIndex !== -1) {
+        testItem.results[paramIndex].value = inputResult.value;
+        anyUpdated = true;
+      }
+    });
+
+    if (reportFileUrl) {
+      testItem.reportFileUrl = reportFileUrl;
+      anyUpdated = true;
+    }
+
+    const allFilled = testItem.results.every(r => r.value && r.value.trim() !== "");
+    if (allFilled) {
+      testItem.status = "COMPLETED";
+    }
+  });
+
+  if (anyUpdated) {
+    const allCompleted = order.tests.every(t => t.status === "COMPLETED");
+    const anyCompleted = order.tests.some(t => t.status === "COMPLETED");
+    order.overallStatus = allCompleted ? "COMPLETED" : (anyCompleted ? "PARTIAL" : "PENDING");
+    await order.save();
+  }
+
+  return order;
+};
+
+// 7. Finalize Test Order (unchanged - good!)
+export const finalizeTestOrder = async (orderId) => {
+  const order = await TestOrder.findById(orderId);
+
+  if (!order) {
+    throw new ApiError(404, "Test Order not found");
+  }
+
+  if (order.overallStatus !== "COMPLETED") {
+    throw new ApiError(400, "Cannot finalize - not all tests completed");
+  }
+
+  const reports = [];
+  for (const test of order.tests) {
+    const report = await TestReport.create({
+      patientId: order.patientId,
+      testId: test.testId,
+      labId: order.labId,
+      testName: test.testName,
+      testDate: order.orderDate,
+      status: "COMPLETED",
+      results: test.results,
+      reportFileUrl: test.reportFileUrl,
+      doctor: order.doctor
+    });
+    reports.push(report);
+  }
+
+  return reports;
 };

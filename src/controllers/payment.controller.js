@@ -3,30 +3,30 @@ import { ApiResponse } from "../utils/ApiResponse.js";
 import { ApiError } from "../utils/ApiError.js";
 import * as paymentService from "../services/payment.service.js";
 
-// Record payment (triggers bill, commission, revenue)
+// Record payment (triggers bill status update, commission, revenue)
 export const recordPaymentController = asyncHandler(async (req, res) => {
-    const { invoiceId, amount, paymentMethod, transactionId } = req.body;
+    const { billId, amount, paymentMethod, transactionId } = req.body;
     const labId = req.user.labId;
 
-    if (!invoiceId || !amount || !paymentMethod) {
-        throw new ApiError(400, "Invoice ID, amount, and payment method are required");
+    if (!billId || !amount || !paymentMethod) {
+        throw new ApiError(400, "Bill ID, amount, and payment method are required");
     }
 
     const result = await paymentService.recordPayment({
-        invoiceId,
+        billId,
         amount,
         paymentMethod,
         transactionId,
         labId,
     });
 
-    res.status(201).json(new ApiResponse(201, result, "Payment recorded and bill generated successfully"));
+    res.status(201).json(new ApiResponse(201, result, "Payment recorded successfully"));
 });
 
-// Get payments for invoice
-export const getInvoicePaymentsController = asyncHandler(async (req, res) => {
-    const { invoiceId } = req.params;
-    const payments = await paymentService.getPaymentsByInvoice(invoiceId);
+// Get payments for bill
+export const getBillPaymentsController = asyncHandler(async (req, res) => {
+    const { billId } = req.params;
+    const payments = await paymentService.getPaymentsByBill(billId);
     res.status(200).json(new ApiResponse(200, payments, "Payments fetched successfully"));
 });
 

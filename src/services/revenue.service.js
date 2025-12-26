@@ -1,16 +1,17 @@
 import Revenue from "../models/revenue.model.js";
 import { ApiError } from "../utils/ApiError.js";
+import mongoose from "mongoose";
 
 // Record revenue after payment
-export const recordRevenue = async ({ invoiceId, totalAmount, commissionAmount, labId }) => {
+export const recordRevenue = async ({ billId, totalAmount, commissionAmount, labId }) => {
     const netRevenue = totalAmount - commissionAmount;
 
     const revenue = await Revenue.create({
-        invoiceId,
+        billId,
         totalAmount,
         commissionAmount,
         netRevenue,
-        labId,
+        labId: new mongoose.Types.ObjectId(labId),
     });
 
     return revenue;
@@ -18,10 +19,20 @@ export const recordRevenue = async ({ invoiceId, totalAmount, commissionAmount, 
 
 // Get revenue stats
 export const getRevenueStats = async (labId, startDate, endDate) => {
-    const filter = { labId };
+    const labObjectId = mongoose.Types.ObjectId.isValid(labId) ? new mongoose.Types.ObjectId(labId) : null;
 
-    if (startDate && endDate) {
-        filter.createdAt = { $gte: new Date(startDate), $lte: new Date(endDate) };
+    const filter = {
+        $or: [
+            { labId: labId },
+            { labId: labObjectId }
+        ].filter(f => f.labId !== null)
+    };
+
+    if (startDate && endDate && startDate !== "" && endDate !== "") {
+        filter.createdAt = {
+            $gte: new Date(new Date(startDate).setHours(0, 0, 0, 0)),
+            $lte: new Date(new Date(endDate).setHours(23, 59, 59, 999))
+        };
     }
 
     const stats = await Revenue.aggregate([
@@ -50,10 +61,15 @@ export const getMonthlyRevenue = async (labId, year) => {
     const startDate = new Date(year, 0, 1);
     const endDate = new Date(year, 11, 31, 23, 59, 59);
 
+    const labObjectId = mongoose.Types.ObjectId.isValid(labId) ? new mongoose.Types.ObjectId(labId) : null;
+
     const monthlyData = await Revenue.aggregate([
         {
             $match: {
-                labId,
+                $or: [
+                    { labId: labId },
+                    { labId: labObjectId }
+                ].filter(f => f.labId !== null),
                 createdAt: { $gte: startDate, $lte: endDate },
             },
         },
