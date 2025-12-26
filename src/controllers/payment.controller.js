@@ -33,6 +33,14 @@ export const getBillPaymentsController = asyncHandler(async (req, res) => {
 // Get all lab payments
 export const getLabPaymentsController = asyncHandler(async (req, res) => {
     const labId = req.user.labId;
-    const payments = await paymentService.getLabPayments(labId);
-    res.status(200).json(new ApiResponse(200, payments, "Lab payments fetched successfully"));
+    const query = req.query;
+
+    const result = await paymentService.getLabPaymentsService(
+        labId,
+        query
+    );
+
+    res.status(200).json(
+        new ApiResponse(200, result, "Lab payments fetched successfully")
+    );
 });

@@ -1,6 +1,7 @@
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import PDFDocument from "pdfkit";
+import { ApiError } from "../utils/ApiError.js";
 import { generateExpenseReportPDF } from "../utils/pdfGenerator.js";
 import {
     createExpenseService,
@@ -46,13 +47,16 @@ export const updateExpenseController = asyncHandler(async (req, res) => {
 });
 
 // 3. List Expenses
+
 export const listExpensesController = asyncHandler(async (req, res) => {
     const adminId = req.user.userId;
-    const query = req.query; // e.g., ?date=2023-10-27&category=RENT
+    const query = req.query;// e.g., ?date=2023-10-27&category=RENT
 
-    const expenses = await listExpensesService(adminId, query);
+    const result = await listExpensesService(adminId, query);
 
-    res.json(new ApiResponse(200, expenses, "Expenses fetched successfully"));
+    res.json(
+        new ApiResponse(200, result, "Expenses fetched successfully")
+    );
 });
 
 // 4. Delete Expense

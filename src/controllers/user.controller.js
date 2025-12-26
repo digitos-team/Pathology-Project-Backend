@@ -10,6 +10,7 @@ import {
 } from "../validations/user.validation.js";
 import { ApiError } from "../utils/ApiError.js";
 
+
 export const registerUserController = asyncHandler(async (req, res) => {
   const { name, email, password, role } = req.body;
   const loggedInUser = req.user;

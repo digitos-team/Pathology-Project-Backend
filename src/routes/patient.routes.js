@@ -5,6 +5,7 @@ import {
   getPatientById,
   updatePatient,
   searchPatient,
+  getDailyPatient,
 } from "../controllers/patient.controller.js";
 
 import { authMiddleware, adminMiddleware } from "../middleware/user.middleware.js";
@@ -38,4 +39,5 @@ router.put(
   updatePatient
 );
 
+router.get("/daily", getDailyPatient);
 export default router;

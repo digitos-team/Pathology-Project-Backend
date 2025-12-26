@@ -39,7 +39,15 @@ export const updateExpenseService = async (expenseId, updates) => {
 export const listExpensesService = async (adminId, query) => {
     const lab = await PathologyLab.findOne({ owner: adminId });
     if (!lab) {
-        return [];
+        return {
+            data: [],
+            pagination: {
+                totalRecords: 0,
+                totalPages: 0,
+                currentPage: 1,
+                limit: 10
+            }
+        };
     }
 
     const filter = { lab: lab._id };
@@ -54,11 +62,12 @@ export const listExpensesService = async (adminId, query) => {
 
         filter.date = { $gte: startOfDay, $lte: endOfDay };
     } else if (query.date) {
-        // Fallback for single date if needed
         const startOfDay = new Date(query.date);
         startOfDay.setHours(0, 0, 0, 0);
+
         const endOfDay = new Date(query.date);
         endOfDay.setHours(23, 59, 59, 999);
+
         filter.date = { $gte: startOfDay, $lte: endOfDay };
     }
 
@@ -67,16 +76,37 @@ export const listExpensesService = async (adminId, query) => {
         filter.category = query.category;
     }
 
-    // Doctor Filter (by ID) if needed in future
+    // Doctor Filter
     if (query.doctor) {
         filter.doctor = query.doctor;
     }
 
+    // 🔹 Pagination Logic
+    const page = parseInt(query.page, 10) || 1;
+    const limit = parseInt(query.limit, 10) || 10;
+    const skip = (page - 1) * limit;
+
+    // 🔹 Count total records
+    const totalRecords = await Expense.countDocuments(filter);
+
+    // 🔹 Fetch paginated data
     const expenses = await Expense.find(filter)
         .sort({ date: -1 })
-        .populate("lab", "name"); // Populate Lab Name for context
-    return expenses;
+        .skip(skip)
+        .limit(limit)
+        .populate("lab", "name");
+
+    return {
+        data: expenses,
+        pagination: {
+            totalRecords,
+            totalPages: Math.ceil(totalRecords / limit),
+            currentPage: page,
+            limit
+        }
+    };
 };
+
 
 // 4. Delete Expense
 export const deleteExpenseService = async (expenseId) => {

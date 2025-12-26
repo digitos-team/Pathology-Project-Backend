@@ -14,17 +14,29 @@ const getLabIdByOwner = async (userId) => {
 
 export const createPatient = async (data, userId) => {
   console.log("[SERVICE] createPatient called", { data, userId });
+
   const labId = await getLabIdByOwner(userId);
+
+  const existingPatient = await Patient.findOne({
+    name: data.name,
+    age: data.age,
+    phone: data.phone
+  });
+
+  if (existingPatient) {
+    throw new Error("Patient already exists with same name, age, and phone number");
+  }
 
   const patient = await Patient.create({
     ...data,
     createdBy: userId,
-    labId: labId,
+    labId
   });
 
   return patient;
 };
 
+//added Pagination for patients
 export const getPatientsByLab = async (userId, options = {}) => {
   // Get pagination parameters with defaults
   const page = Math.max(1, parseInt(options.page) || 1);
@@ -123,4 +135,35 @@ export const searchPatient = async (userId, query) => {
     filter.fullName = { $regex: query.fullName, $options: "i" };
 
   return await Patient.find(filter);
+};
+
+//get daily patient
+export const dailypatient = async (labId, year, month) => {
+  const startDate = new Date(year, month - 1, 1);
+  const endDate = new Date(year, month, 0, 23, 59, 59);
+
+  // ✅ Force ObjectId (this is the key fix)
+  const labObjectId = new mongoose.Types.ObjectId(labId);
+
+  const dailyData = await Patient.aggregate([
+    {
+      $match: {
+        labId: labObjectId,
+        createdAt: { $gte: startDate, $lte: endDate }
+      }
+    },
+    {
+      $group: {
+        _id: {
+          day: { $dayOfMonth: "$createdAt" }
+        },
+        totalPatients: { $sum: 1 }
+      }
+    },
+    {
+      $sort: { "_id.day": 1 }
+    }
+  ]);
+
+  return dailyData;
 };

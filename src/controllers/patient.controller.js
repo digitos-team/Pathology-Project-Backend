@@ -3,11 +3,20 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 
+
+
+
 // Register Patient
 export const createPatient = asyncHandler(async (req, res) => {
   console.log("[CONTROLLER] createPatient", req.body);
-  const patient = await patientService.createPatient(req.body, req.user.userId);
-  res.status(201).json(new ApiResponse(201, patient, "Patient registered successfully"));
+  const patient = await patientService.createPatient(
+    req.body,
+    req.user.userId
+  );
+
+  res.status(201).json(
+    new ApiResponse(201, patient, "Patient registered successfully")
+  );
 });
 
 // Get All Patients Added Pagination 
@@ -56,4 +65,27 @@ export const updatePatient = asyncHandler(async (req, res) => {
 export const searchPatient = asyncHandler(async (req, res) => {
   const patients = await patientService.searchPatient(req.user.userId, req.query);
   res.status(200).json(new ApiResponse(200, patients, "Patients found"));
+});
+
+//get daily patient
+export const getDailyPatient = asyncHandler(async (req, res) => {
+  const { year, month } = req.query;
+
+  if (!year || !month) {
+    return res.status(400).json(
+      new ApiResponse(400, null, "Year and month are required")
+    );
+  }
+
+  const labId = req.user.labId; 
+
+  const data = await patientService.dailypatient(
+    labId,
+    Number(year),
+    Number(month)
+  );
+
+  res.status(200).json(
+    new ApiResponse(200, data, "Daily patient fetched successfully")
+  );
 });

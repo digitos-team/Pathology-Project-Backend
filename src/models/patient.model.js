@@ -70,8 +70,7 @@ const patientSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
-
-    fullName: {
+   fullName: {
       type: String,
       required: true,
       trim: true,
@@ -108,6 +107,13 @@ const patientSchema = new mongoose.Schema(
       default: true,
       index: true, // Single field index
     },
+    reportStatus: {
+      type: String,
+      enum: ["pending", "generated", "sent", "failed"],
+      default: "pending"
+    },
+    reportPdfPath: {type:String},
+    emailSentAt: {type:Date}
   },
   { timestamps: true }
 );
