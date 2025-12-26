@@ -15,6 +15,21 @@ const labSchema = new mongoose.Schema(
     licenseNumber: String,
     gstNumber: String,
     panNumber: String,
+
+    email: String,
+    website: String,
+
+    bankDetails: {
+      bankName: String,
+      accountNumber: String,
+      ifscCode: String,
+      accountName: String,
+    },
+
+    paymentTerms: {
+      type: String,
+      default: "Check, Credit Card, or Bank Transfer",
+    },
   },
   { timestamps: true }
 );

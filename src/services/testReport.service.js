@@ -3,12 +3,18 @@ import TestReport from "../models/testReport.model.js";
 import Patient from "../models/patient.model.js";
 import LabTest from "../models/labtest.model.js";
 import Bill from "../models/bill.model.js";
-const getDoctorModel = async () => (await import("../models/doctor.model.js")).default;
+const getDoctorModel = async () =>
+  (await import("../models/doctor.model.js")).default;
 import { ApiError } from "../utils/ApiError.js";
 import TestOrder from "../models/testorder.model.js";
 
 // 1. Create Test Order
-export const createTestOrder = async ({ patientId, testIds, doctorId, labId }) => {
+export const createTestOrder = async ({
+  patientId,
+  testIds,
+  doctorId,
+  labId,
+}) => {
   const patient = await Patient.findById(patientId);
   if (!patient) throw new ApiError(404, "Patient not found");
 
@@ -25,11 +31,11 @@ export const createTestOrder = async ({ patientId, testIds, doctorId, labId }) =
       throw new ApiError(404, `Test with ID ${testId} not found`);
     }
 
-    const initialResults = labTest.parameters.map(param => ({
+    const initialResults = labTest.parameters.map((param) => ({
       parameterName: param.name,
       value: "",
       unit: param.unit,
-      referenceRange: param.referenceRange
+      referenceRange: param.referenceRange,
     }));
 
     tests.push({
@@ -37,7 +43,7 @@ export const createTestOrder = async ({ patientId, testIds, doctorId, labId }) =
       testName: labTest.testName,
       price: labTest.price,
       status: "PENDING",
-      results: initialResults
+      results: initialResults,
     });
 
     totalAmount += labTest.price;
@@ -49,14 +55,14 @@ export const createTestOrder = async ({ patientId, testIds, doctorId, labId }) =
     doctor: doctorId,
     tests,
     totalAmount,
-    overallStatus: "PENDING"
+    overallStatus: "PENDING",
   });
 
   const billService = await import("./bill.service.js");
   const bill = await billService.generateBill({
     patientId,
     testOrderId: testOrder._id,
-    items: tests.map(t => ({ name: t.testName, price: t.price })),
+    items: tests.map((t) => ({ name: t.testName, price: t.price })),
     totalAmount,
     labId,
   });
@@ -68,7 +74,15 @@ export const createTestOrder = async ({ patientId, testIds, doctorId, labId }) =
 };
 
 // 2. Add Historical Report (unchanged - still uses TestReport)
-export const addHistoricalReport = async ({ patientId, testName, doctorName, testDate, reportFileUrl, labId, testId }) => {
+export const addHistoricalReport = async ({
+  patientId,
+  testName,
+  doctorName,
+  testDate,
+  reportFileUrl,
+  labId,
+  testId,
+}) => {
   const report = await TestReport.create({
     patientId,
     testId,
@@ -84,7 +98,11 @@ export const addHistoricalReport = async ({ patientId, testName, doctorName, tes
 };
 
 // 3. Submit Results for Individual Test
-export const submitTestResults = async (orderId, testItemId, { results, reportFileUrl }) => {
+export const submitTestResults = async (
+  orderId,
+  testItemId,
+  { results, reportFileUrl }
+) => {
   const order = await TestOrder.findById(orderId);
   if (!order) throw new ApiError(404, "Test Order not found");
 
@@ -92,17 +110,17 @@ export const submitTestResults = async (orderId, testItemId, { results, reportFi
 
   // If not found by subdocument ID, try finding by the LabTest ID (reference)
   if (!testItem) {
-    testItem = order.tests.find(t => t.testId.toString() === testItemId);
+    testItem = order.tests.find((t) => t.testId.toString() === testItemId);
   }
 
   if (!testItem) throw new ApiError(404, "Test not found in this order");
 
-  
-
   if (results && Array.isArray(results)) {
-    results.forEach(inputResult => {
+    results.forEach((inputResult) => {
       const paramIndex = testItem.results.findIndex(
-        r => r.parameterName.trim().toLowerCase() === inputResult.parameterName.trim().toLowerCase()
+        (r) =>
+          r.parameterName.trim().toLowerCase() ===
+          inputResult.parameterName.trim().toLowerCase()
       );
       if (paramIndex !== -1) {
         testItem.results[paramIndex].value = inputResult.value;
@@ -113,10 +131,14 @@ export const submitTestResults = async (orderId, testItemId, { results, reportFi
   if (reportFileUrl) testItem.reportFileUrl = reportFileUrl;
   testItem.status = "COMPLETED";
 
-  const allCompleted = order.tests.every(t => t.status === "COMPLETED");
-  const anyCompleted = order.tests.some(t => t.status === "COMPLETED");
+  const allCompleted = order.tests.every((t) => t.status === "COMPLETED");
+  const anyCompleted = order.tests.some((t) => t.status === "COMPLETED");
 
-  order.overallStatus = allCompleted ? "COMPLETED" : (anyCompleted ? "PARTIAL" : "PENDING");
+  order.overallStatus = allCompleted
+    ? "COMPLETED"
+    : anyCompleted
+    ? "PARTIAL"
+    : "PENDING";
 
   await order.save();
   return order;
@@ -126,7 +148,7 @@ export const submitTestResults = async (orderId, testItemId, { results, reportFi
 export const getPendingOrders = async (labId) => {
   return await TestOrder.find({
     labId,
-    overallStatus: { $in: ["PENDING", "PARTIAL"] }
+    overallStatus: { $in: ["PENDING", "PARTIAL"] },
   })
     .populate("patientId", "fullName phone age gender")
     .populate("doctor", "name")
@@ -159,7 +181,10 @@ export const getPatientReports = async (patientId, labId) => {
 };
 
 // 6. Bulk Submit Results by Bill ✅ UPDATED
-export const submitBulkResultsByBill = async (billId, { results, reportFileUrl }) => {
+export const submitBulkResultsByBill = async (
+  billId,
+  { results, reportFileUrl }
+) => {
   const bill = await Bill.findById(billId);
   if (!bill) throw new ApiError(404, "Bill not found");
 
@@ -168,12 +193,12 @@ export const submitBulkResultsByBill = async (billId, { results, reportFileUrl }
 
   let anyUpdated = false;
 
-  order.tests.forEach(testItem => {
+  order.tests.forEach((testItem) => {
     if (testItem.status === "COMPLETED") return;
 
-    results?.forEach(inputResult => {
+    results?.forEach((inputResult) => {
       const paramIndex = testItem.results.findIndex(
-        r => r.parameterName === inputResult.parameterName
+        (r) => r.parameterName === inputResult.parameterName
       );
       if (paramIndex !== -1) {
         testItem.results[paramIndex].value = inputResult.value;
@@ -186,16 +211,22 @@ export const submitBulkResultsByBill = async (billId, { results, reportFileUrl }
       anyUpdated = true;
     }
 
-    const allFilled = testItem.results.every(r => r.value && r.value.trim() !== "");
+    const allFilled = testItem.results.every(
+      (r) => r.value && r.value.trim() !== ""
+    );
     if (allFilled) {
       testItem.status = "COMPLETED";
     }
   });
 
   if (anyUpdated) {
-    const allCompleted = order.tests.every(t => t.status === "COMPLETED");
-    const anyCompleted = order.tests.some(t => t.status === "COMPLETED");
-    order.overallStatus = allCompleted ? "COMPLETED" : (anyCompleted ? "PARTIAL" : "PENDING");
+    const allCompleted = order.tests.every((t) => t.status === "COMPLETED");
+    const anyCompleted = order.tests.some((t) => t.status === "COMPLETED");
+    order.overallStatus = allCompleted
+      ? "COMPLETED"
+      : anyCompleted
+      ? "PARTIAL"
+      : "PENDING";
     await order.save();
   }
 
@@ -225,10 +256,22 @@ export const finalizeTestOrder = async (orderId) => {
       status: "COMPLETED",
       results: test.results,
       reportFileUrl: test.reportFileUrl,
-      doctor: order.doctor
+      doctor: order.doctor,
     });
     reports.push(report);
   }
 
   return reports;
+};
+
+// 8. Get Test Order by ID with full details
+export const getTestOrderById = async (orderId) => {
+  return await TestOrder.findById(orderId)
+    .populate("patientId")
+    .populate("doctor", "name")
+    .populate("labId")
+    .populate({
+      path: "tests.testId",
+      select: "category testName parameters",
+    });
 };

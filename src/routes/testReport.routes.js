@@ -6,9 +6,13 @@ import {
   getPatientTestHistoryController as getPatientReportsController,
   addHistoricalReportController,
   submitBulkResultsController,
-  finalizeTestOrderController
+  finalizeTestOrderController,
+  downloadTestReportPDFController,
 } from "../controllers/testReport.controller.js";
-import { authMiddleware, adminMiddleware } from "../middleware/user.middleware.js";
+import {
+  authMiddleware,
+  adminMiddleware,
+} from "../middleware/user.middleware.js";
 
 const router = express.Router();
 
@@ -35,5 +39,8 @@ router.get("/finalize/:orderId", finalizeTestOrderController);
 
 // Get Patient History
 router.get("/patient/:patientId", getPatientReportsController);
+
+// Download Test Report PDF
+router.get("/:orderId/download", downloadTestReportPDFController);
 
 export default router;

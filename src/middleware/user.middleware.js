@@ -3,7 +3,8 @@ import { ApiError } from "../utils/ApiError.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 
 export const authMiddleware = asyncHandler(async (req, res, next) => {
-  const token = req.cookies?.accessToken || req.headers.authorization?.split(" ")[1];
+  const token =
+    req.cookies?.accessToken || req.headers.authorization?.split(" ")[1];
 
   if (!token) {
     throw new ApiError(401, "Access token is missing");
@@ -20,7 +21,8 @@ export const authMiddleware = asyncHandler(async (req, res, next) => {
 
 // Optional Auth Middleware - Does not throw error if no token
 export const optionalAuthMiddleware = asyncHandler(async (req, res, next) => {
-  const token = req.cookies?.accessToken || req.headers.authorization?.split(" ")[1];
+  const token =
+    req.cookies?.accessToken || req.headers.authorization?.split(" ")[1];
 
   if (token) {
     try {
@@ -40,3 +42,15 @@ export const adminMiddleware = asyncHandler(async (req, res, next) => {
   }
   next();
 });
+
+export const authorizeRoles = (...roles) => {
+  return (req, res, next) => {
+    if (!roles.includes(req.user?.role)) {
+      throw new ApiError(
+        403,
+        `Role ${req.user?.role} is not allowed to access this resource`
+      );
+    }
+    next();
+  };
+};

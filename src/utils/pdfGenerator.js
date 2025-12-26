@@ -1,40 +1,586 @@
-export const generateExpenseReportPDF = (doc, reportData, type, year, month) => {
-    // Header
-    doc.fontSize(20).text("Expense Report", { align: "center" });
-    doc.moveDown();
-    doc.fontSize(12).text(`Report Type: ${type.toUpperCase()}`);
-    doc.text(`Year: ${year}`);
-    if (month) doc.text(`Month: ${month}`);
-    doc.moveDown();
+export const generateExpenseReportPDF = (
+  doc,
+  reportData,
+  type,
+  year,
+  month
+) => {
+  // Existing expense report logic...
+  doc.fontSize(20).text("Expense Report", { align: "center" });
+  doc.moveDown();
+  doc.fontSize(12).text(`Report Type: ${type.toUpperCase()}`);
+  doc.text(`Year: ${year}`);
+  if (month) doc.text(`Month: ${month}`);
+  doc.moveDown();
 
-    // Summary Table Header
-    doc.fontSize(14).text("Summary", { underline: true });
+  let grandTotal = 0;
+  reportData.forEach((group) => {
+    const timeUnit = group._id;
+    doc.fontSize(12).font("Helvetica-Bold").text(`Period: ${timeUnit}`);
+    group.categories.forEach((cat) => {
+      doc
+        .font("Helvetica")
+        .text(`  - ${cat.category}: ${cat.totalAmount} (Count: ${cat.count})`);
+      grandTotal += cat.totalAmount;
+    });
     doc.moveDown(0.5);
+  });
+  doc.moveDown();
+  doc
+    .fontSize(14)
+    .font("Helvetica-Bold")
+    .text(`Grand Total: ${grandTotal}`, { align: "right" });
+};
 
-    let grandTotal = 0;
+export const generateBillPDF = (doc, bill, lab) => {
+  // Medical-style layout (Minimal colors: black/gray with dark accent)
+  const accentColor = "#2c3e50"; // Dark blue/gray accent
+  const borderColor = "#cccccc";
+  const lightGray = "#f2f2f2";
 
-    // Iterate through report data (Grouped by Day or Month)
-    reportData.forEach((group) => {
-        const timeUnit = group._id; // Day or Month
+  // 1. Header: Lab Name (bold, large)
+  doc
+    .fillColor(accentColor)
+    .fontSize(22)
+    .font("Helvetica-Bold")
+    .text(lab.labName.toUpperCase(), { align: "left" });
 
-        doc.fontSize(12).font('Helvetica-Bold').text(`Period: ${timeUnit}`);
+  doc.fontSize(10).font("Helvetica").fillColor("black");
+  doc.text(lab.address || "");
+  doc.text(`Phone: ${lab.contact || ""} | Email: ${lab.email || ""}`);
+  doc.text(`GSTIN: ${lab.gstNumber || ""}`);
 
-        group.categories.forEach(cat => {
-            doc.font('Helvetica').text(`  - ${cat.category}: ${cat.totalAmount} (Count: ${cat.count})`);
-            grandTotal += cat.totalAmount;
+  doc.moveDown();
 
-            // List items if monthly (Detailed view)
-            if (type === 'monthly' && cat.items && cat.items.length > 0) {
-                cat.items.forEach(item => {
-                    doc.fontSize(10).text(`      * ${item.date.toISOString().split('T')[0]} - ${item.title}: ${item.amount}`, { textIndent: 20, color: 'gray' });
-                });
-                doc.fillColor('black'); // Reset color
-                doc.fontSize(12);
-            }
-        });
-        doc.moveDown(0.5);
+  // 2. Title: BILL / TAX INVOICE (Centered)
+  doc.fontSize(16).font("Helvetica-Bold").text("BILL", { align: "center" });
+  doc.moveDown(0.2);
+  doc.lineWidth(0.5).moveTo(30, doc.y).lineTo(570, doc.y).stroke();
+  doc.moveDown();
+
+  // 3. Info Sections: Patient info on left, Invoice Details on right
+  const patientX = 35;
+  const invoiceX = 350;
+  const infoTop = doc.y;
+
+  // Patient Information section
+  doc
+    .fontSize(10)
+    .font("Helvetica-Bold")
+    .text("PATIENT INFORMATION:", patientX);
+  doc.font("Helvetica").fontSize(9);
+  doc.text(
+    `Patient Name :  ${bill.patientId.fullName}`,
+    patientX,
+    infoTop + 18
+  );
+  doc.text(
+    `Patient ID (UHID) :  ${bill.patientId._id
+      .toString()
+      .slice(-8)
+      .toUpperCase()}`,
+    patientX,
+    infoTop + 31
+  );
+  doc.text(
+    `Age & Gender :  ${bill.patientId.age} / ${bill.patientId.gender}`,
+    patientX,
+    infoTop + 44
+  );
+  doc.text(
+    `Mobile Number :  ${bill.patientId.phone || "N/A"}`,
+    patientX,
+    infoTop + 57
+  );
+  doc.text(
+    `Referred By :  ${bill.testOrderId?.doctor?.name || "Self"}`,
+    patientX,
+    infoTop + 70
+  );
+
+  // Invoice Details section (right aligned)
+  doc.fontSize(10).font("Helvetica-Bold").text("INVOICE DETAILS:", invoiceX);
+  doc.font("Helvetica").fontSize(9);
+  doc.text(`Invoice Number :`, invoiceX, infoTop + 18);
+  doc.text(`${bill.billNumber}`, invoiceX + 100, infoTop + 18);
+  doc.text(`Invoice Date :`, invoiceX, infoTop + 31);
+  doc.text(
+    `${new Date(bill.createdAt).toLocaleDateString("en-IN")}`,
+    invoiceX + 100,
+    infoTop + 31
+  );
+  doc.text(`Payment Status :`, invoiceX, infoTop + 44);
+  doc.text(`${bill.status}`, invoiceX + 100, infoTop + 44);
+  doc.text(`Payment Mode :`, invoiceX, infoTop + 57);
+  doc.text(
+    `${bill.paymentId?.paymentMethod || "CASH"}`,
+    invoiceX + 100,
+    infoTop + 57
+  );
+
+  doc.moveDown(8);
+
+  // 4. Test Details Table: Columns: Description | Quantity | Unit Price | Amount
+  const tableTop = doc.y;
+  doc.rect(30, tableTop, 540, 20).fill(lightGray).stroke(borderColor);
+  doc.fillColor("black").font("Helvetica-Bold").fontSize(10);
+  doc.text("Description", 35, tableTop + 5);
+  doc.text("Quantity", 280, tableTop + 5, { width: 50, align: "center" });
+  doc.text("Unit Price (INR)", 380, tableTop + 5, {
+    width: 80,
+    align: "right",
+  });
+  doc.text("Amount (INR)", 480, tableTop + 5, { width: 80, align: "right" });
+
+  let currentY = tableTop + 20;
+  doc.font("Helvetica").fontSize(9);
+
+  bill.items.forEach((item) => {
+    doc.text(item.name, 40, currentY + 7, { width: 230 });
+    doc.text("1", 280, currentY + 7, { width: 50, align: "center" });
+    doc.text(`${item.price.toFixed(2)}`, 380, currentY + 7, {
+      width: 80,
+      align: "right",
+    });
+    doc.text(`${item.price.toFixed(2)}`, 480, currentY + 7, {
+      width: 80,
+      align: "right",
     });
 
-    doc.moveDown();
-    doc.fontSize(14).font('Helvetica-Bold').text(`Grand Total: ${grandTotal}`, { align: "right" });
+    currentY += 25;
+    doc
+      .lineWidth(0.2)
+      .moveTo(30, currentY)
+      .lineTo(570, currentY)
+      .stroke("#eeeeee");
+  });
+
+  // Stroke outer table box
+  doc
+    .lineWidth(0.5)
+    .strokeColor(borderColor)
+    .rect(30, tableTop, 540, currentY - tableTop)
+    .stroke();
+
+  // 5. Amount Summary box (right aligned)
+  const totalAmount = bill.totalAmount;
+
+  currentY += 15;
+  const summaryX = 350;
+
+  doc
+    .rect(summaryX, currentY - 2, 220, 25)
+    .fill(accentColor)
+    .stroke();
+  doc.fillColor("white").font("Helvetica-Bold").fontSize(11);
+  doc.text("Total Amount Due", summaryX + 10, currentY + 6, {
+    width: 120,
+    align: "left",
+  });
+  doc.text(`INR ${totalAmount.toFixed(2)}`, 480, currentY + 6, {
+    width: 80,
+    align: "right",
+  });
+
+  // 6. Footer section
+  doc.fillColor("black").font("Helvetica").fontSize(8);
+  const footerY = doc.page.height - 100;
+
+  // Signature placeholder
+  doc.text("__________________________", 400, footerY - 20);
+  doc.text("Authorized Signatory / Stamp", 400, footerY - 5);
+
+  doc.text("• This is a computer-generated invoice.", 35, footerY - 10);
+  doc.text("• Reports are valid for 1 year from test date.", 35, footerY);
+
+  doc.moveDown(3);
+  doc
+    .fontSize(11)
+    .font("Helvetica-Bold")
+    .text("Thank you for your business!", { align: "center", width: 540 });
+};
+
+export const generateBillingReportPDF = (
+  doc,
+  reportData,
+  type,
+  year,
+  month
+) => {
+  const accentColor = "#2c3e50";
+  const borderColor = "#eeeeee";
+
+  // 1. Report Title
+  doc
+    .fillColor(accentColor)
+    .fontSize(20)
+    .font("Helvetica-Bold")
+    .text("BILLING SUMMARY REPORT", { align: "center" });
+
+  doc.moveDown(0.5);
+  doc.fontSize(10).font("Helvetica").fillColor("gray");
+  doc.text(
+    `Report Type: ${type.toUpperCase()} | Year: ${year}${
+      month ? ` | Month: ${month}` : ""
+    }`,
+    { align: "center" }
+  );
+
+  doc.moveDown(1);
+  doc
+    .lineWidth(0.5)
+    .strokeColor(borderColor)
+    .moveTo(30, doc.y)
+    .lineTo(570, doc.y)
+    .stroke();
+  doc.moveDown(1);
+
+  let grandTotal = 0;
+  let grandPaid = 0;
+  let grandPending = 0;
+
+  // 2. Report Content (Period-wise)
+  reportData.forEach((group) => {
+    const startY = doc.y;
+
+    // Left Zone: Period and Count
+    doc
+      .fillColor(accentColor)
+      .fontSize(11)
+      .font("Helvetica-Bold")
+      .text(`PERIOD: ${group._id}`, 40, startY);
+    doc
+      .fontSize(9)
+      .font("Helvetica")
+      .fillColor("black")
+      .text(`Bill Count: ${group.billCount}`, 40, startY + 15);
+
+    // Right Zone: Financial Totals
+    const rightAlignX = 350;
+    const valueColumnX = 480;
+
+    doc.text("Total Amount :", rightAlignX, startY, {
+      width: 120,
+      align: "right",
+    });
+    doc.text(`INR ${group.totalAmount.toFixed(2)}`, valueColumnX, startY, {
+      width: 90,
+      align: "right",
+    });
+
+    doc.fillColor("green").text("Paid Amount :", rightAlignX, startY + 12, {
+      width: 120,
+      align: "right",
+    });
+    doc.text(`INR ${group.paidAmount.toFixed(2)}`, valueColumnX, startY + 12, {
+      width: 90,
+      align: "right",
+    });
+
+    doc.fillColor("red").text("Pending Amount :", rightAlignX, startY + 24, {
+      width: 120,
+      align: "right",
+    });
+    doc.text(
+      `INR ${group.pendingAmount.toFixed(2)}`,
+      valueColumnX,
+      startY + 24,
+      { width: 90, align: "right" }
+    );
+
+    grandTotal += group.totalAmount;
+    grandPaid += group.paidAmount;
+    grandPending += group.pendingAmount;
+
+    doc.moveDown(2);
+    doc
+      .lineWidth(0.2)
+      .strokeColor(borderColor)
+      .moveTo(40, doc.y)
+      .lineTo(570, doc.y)
+      .stroke();
+    doc.moveDown(1);
+  });
+
+  // 3. Grand Totals (Right Aligned Bottom)
+  doc.moveDown(2);
+  const finalSummaryX = 350;
+  const finalValueX = 480;
+
+  doc
+    .fillColor(accentColor)
+    .fontSize(12)
+    .font("Helvetica-Bold")
+    .text("GRAND TOTALS", finalSummaryX + 20, doc.y);
+  doc.moveDown(0.5);
+
+  doc.fontSize(10).font("Helvetica-Bold").fillColor("black");
+  doc.text("Total Revenue :", finalSummaryX, doc.y, {
+    width: 120,
+    align: "right",
+  });
+  doc.text(`INR ${grandTotal.toFixed(2)}`, finalValueX, doc.y - 12, {
+    width: 90,
+    align: "right",
+  });
+  doc.moveDown(0.2);
+
+  doc
+    .fillColor("green")
+    .text("Total Paid :", finalSummaryX, doc.y, { width: 120, align: "right" });
+  doc.text(`INR ${grandPaid.toFixed(2)}`, finalValueX, doc.y - 12, {
+    width: 90,
+    align: "right",
+  });
+  doc.moveDown(0.2);
+
+  doc.fillColor("red").text("Total Pending :", finalSummaryX, doc.y, {
+    width: 120,
+    align: "right",
+  });
+  doc.text(`INR ${grandPending.toFixed(2)}`, finalValueX, doc.y - 12, {
+    width: 90,
+    align: "right",
+  });
+
+  doc.moveDown(4);
+  doc
+    .fillColor("gray")
+    .fontSize(8)
+    .font("Helvetica")
+    .text(
+      "This is an automated financial summary report generated by the pathology lab system.",
+      { align: "center" }
+    );
+};
+
+export const generateTestReportPDF = (doc, order, lab) => {
+  const accentColor = "#2c3e50";
+
+  const pageWidth = doc.page.width;
+  const pageHeight = doc.page.height;
+  const leftMargin = doc.page.margins.left;
+  const rightMargin = pageWidth - doc.page.margins.right;
+
+  // Helper: page break handler
+  const ensureSpace = (y, space = 30) => {
+    if (y + space > pageHeight - doc.page.margins.bottom - 90) {
+      doc.addPage();
+      return doc.page.margins.top;
+    }
+    return y;
+  };
+
+  /* ---------------- HEADER ---------------- */
+
+  doc.rect(0, 0, pageWidth, 105).fill("#f0f8ff");
+
+  doc
+    .fillColor(accentColor)
+    .font("Helvetica-Bold")
+    .fontSize(19)
+    .text((lab.labName || "LABORATORY").toUpperCase(), leftMargin, 32);
+
+  doc.fontSize(11).text("PATHOLOGY LABORATORY", leftMargin, 58);
+
+  doc
+    .fillColor("black")
+    .font("Helvetica")
+    .fontSize(8)
+    .text("Fully Automated Computerised Diagnostic Center", leftMargin, 78);
+
+  doc
+    .fontSize(8)
+    .text(lab.address || "", rightMargin - 210, 35, { width: 210 })
+    .text(`Email: ${lab.email || ""}`, rightMargin - 210, 55)
+    .text(`Phone: ${lab.contact || ""}`, rightMargin - 210, 65)
+    .text(
+      `Timing: ${lab.operatingHours || "7:00 AM - 9:00 PM"}`,
+      rightMargin - 210,
+      75
+    );
+
+  doc
+    .strokeColor(accentColor)
+    .lineWidth(1)
+    .moveTo(leftMargin, 105)
+    .lineTo(rightMargin, 105)
+    .stroke();
+
+  /* ---------------- PATIENT INFO ---------------- */
+
+  let currentY = 120;
+  const labelGap = 90;
+  const rightX = pageWidth / 2 + 10;
+
+  doc.fontSize(9).font("Helvetica-Bold");
+
+  doc.text("Patient Name :", leftMargin, currentY);
+  doc
+    .font("Helvetica")
+    .text(
+      order.patientId.fullName.toUpperCase(),
+      leftMargin + labelGap,
+      currentY
+    );
+
+  doc.font("Helvetica-Bold").text("Age / Sex :", leftMargin, currentY + 14);
+  doc
+    .font("Helvetica")
+    .text(
+      `${order.patientId.age} Years / ${order.patientId.gender}`,
+      leftMargin + labelGap,
+      currentY + 14
+    );
+
+  doc.font("Helvetica-Bold").text("Referred By :", leftMargin, currentY + 28);
+  doc
+    .font("Helvetica")
+    .text(order.doctor?.name || "Self", leftMargin + labelGap, currentY + 28);
+
+  doc.font("Helvetica-Bold").text("Address :", leftMargin, currentY + 42);
+  doc
+    .font("Helvetica")
+    .text(
+      order.patientId.address?.city || "Local",
+      leftMargin + labelGap,
+      currentY + 42
+    );
+
+  doc.font("Helvetica-Bold").text("Patient ID :", rightX, currentY);
+  doc
+    .font("Helvetica")
+    .text(order.patientId._id.toString(), rightX + labelGap, currentY);
+
+  doc.font("Helvetica-Bold").text("Registered On :", rightX, currentY + 14);
+  doc
+    .font("Helvetica")
+    .text(
+      new Date(order.orderDate).toLocaleDateString("en-GB"),
+      rightX + labelGap,
+      currentY + 14
+    );
+
+  doc.font("Helvetica-Bold").text("Printed On :", rightX, currentY + 28);
+  doc
+    .font("Helvetica")
+    .text(new Date().toLocaleString("en-GB"), rightX + labelGap, currentY + 28);
+
+  doc
+    .strokeColor(accentColor)
+    .lineWidth(1)
+    .moveTo(leftMargin, currentY + 65)
+    .lineTo(rightMargin, currentY + 65)
+    .stroke();
+
+  currentY += 80;
+
+  /* ---------------- TABLE HEADER ---------------- */
+
+  doc.rect(leftMargin, currentY, rightMargin - leftMargin, 22).fill("#eeeeee");
+  doc.fillColor("black").font("Helvetica-Bold").fontSize(10);
+
+  doc.text("Test Name", leftMargin + 5, currentY + 6);
+  doc.text("Patient Value", leftMargin + 210, currentY + 6);
+  doc.text("Unit", leftMargin + 330, currentY + 6);
+  doc.text("Reference Range", leftMargin + 410, currentY + 6);
+
+  currentY += 28;
+
+  /* ---------------- RESULTS ---------------- */
+
+  const categories = [
+    ...new Set(order.tests.map((t) => t.testId?.category || "TEST REPORT")),
+  ];
+
+  categories.forEach((category) => {
+    currentY = ensureSpace(currentY, 40);
+
+    doc
+      .font("Helvetica-Bold")
+      .fontSize(11)
+      .text(category.toUpperCase(), leftMargin, currentY, {
+        width: rightMargin - leftMargin,
+        align: "center",
+      });
+
+    currentY += 18;
+
+    order.tests
+      .filter((t) => (t.testId?.category || "TEST REPORT") === category)
+      .forEach((test) => {
+        test.results.forEach((param) => {
+          currentY = ensureSpace(currentY, 22);
+
+          doc
+            .font("Helvetica-Bold")
+            .fontSize(9.5)
+            .text(param.parameterName, leftMargin, currentY);
+          doc
+            .font("Helvetica")
+            .text(param.value || "-", leftMargin + 210, currentY);
+          doc.text(param.unit || "", leftMargin + 330, currentY);
+          doc.text(
+            `${param.referenceRange?.min} - ${param.referenceRange?.max}`,
+            leftMargin + 410,
+            currentY
+          );
+
+          currentY += 18;
+        });
+
+        if (test.testName.includes("(RBS)")) {
+          currentY = ensureSpace(currentY, 14);
+          doc
+            .fontSize(8)
+            .font("Helvetica-Oblique")
+            .text("Method: GOD-POD", leftMargin, currentY);
+          currentY += 12;
+        }
+      });
+  });
+
+  currentY += 20;
+  doc.font("Helvetica-Bold").text("*********** End Of Report ***********", {
+    align: "center",
+    width: rightMargin - leftMargin,
+  });
+
+  /* ---------------- FOOTER (ALL PAGES) ---------------- */
+
+  const pageRange = doc.bufferedPageRange();
+
+  for (let i = 0; i < pageRange.count; i++) {
+    doc.switchToPage(i);
+
+    const footerY = pageHeight - 95;
+
+    doc
+      .lineWidth(0.5)
+      .moveTo(leftMargin, footerY)
+      .lineTo(rightMargin, footerY)
+      .stroke();
+
+    doc
+      .fontSize(8.5)
+      .font("Helvetica-Bold")
+      .text("Kindly Correlate Clinically !", leftMargin, footerY + 8);
+
+    doc
+      .font("Helvetica")
+      .text("Thanks for referral !", leftMargin, footerY + 22);
+
+    doc
+      .font("Helvetica-Bold")
+      .text("Authorized Signatory", rightMargin - 120, footerY + 22);
+    doc
+      .fontSize(7)
+      .font("Helvetica-Oblique")
+      .text(
+        "Laboratory Does Not Take The Responsibility of Patient's Identity",
+        leftMargin,
+        pageHeight - 45,
+        { align: "center", width: rightMargin - leftMargin }
+      );
+  }
 };
