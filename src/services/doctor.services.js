@@ -4,16 +4,12 @@ import Expense from "../models/expense.model.js";
 import { ApiError } from "../utils/ApiError.js";
 import mongoose from "mongoose";
 
-export const createDoctorService = async (doctorData, adminId) => {
-    // Find the lab associated with this admin
-    const lab = await PathologyLab.findOne({ owner: adminId });
-    if (!lab) {
-        throw new ApiError(404, "No Lab found for this Admin. Please update Lab Details first.");
-    }
+export const createDoctorService = async (doctorData, labId) => {
+    // We already have labId from the controller
 
     const doctor = await Doctor.create({
         ...doctorData,
-        lab: lab._id
+        lab: labId
     });
 
     return doctor;
@@ -27,12 +23,8 @@ export const updateDoctorService = async (doctorId, updates) => {
     return doctor;
 };
 
-export const getAllDoctorsService = async (adminId) => {
-    const lab = await PathologyLab.findOne({ owner: adminId });
-    if (!lab) {
-        return [];
-    }
-    const doctors = await Doctor.find({ lab: lab._id });
+export const getAllDoctorsService = async (labId) => {
+    const doctors = await Doctor.find({ lab: labId });
     return doctors;
 };
 

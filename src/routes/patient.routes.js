@@ -28,13 +28,12 @@ router.get("/getallpatient", getPatients);
 // Search patient
 router.get("/search", searchPatient);
 
-// Patient profile
+// Patien   t profile
 router.get("/getpatientbyid/:id", getPatientById);
 
 // Update patient
 router.put(
-  "updatepatient/:id",
-  adminMiddleware,
+  "/updatepatient/:id",
   updatePatient
 );
 

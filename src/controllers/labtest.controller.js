@@ -5,21 +5,10 @@ import testService from "../services/labtest.services.js";
 import labSchema from "../models/pathologyLab.model.js";
 
 
-// Helper to get Lab ID from User ID
-const getLabIdFromUser = async (userId) => {
-    const lab = await labSchema.findOne({ owner: userId });
-    if (!lab) {
-        throw new ApiError(404, "No Lab found associated with this user. Please create a Lab first.");
-    }
-    return lab._id;
-};
-
-/**
- * @desc    Create new Test (Admin only)
- * @route   POST /api/tests
- */
+// 1. Create new Test (Admin only)
 export const createTest = asyncHandler(async (req, res) => {
-    const labId = await getLabIdFromUser(req.user.userId || req.user._id);
+    const labId = req.user.labId;
+    console.log("CREATING TEST - Incoming Parameters:", JSON.stringify(req.body.parameters, null, 2));
 
     const test = await testService.createTest({
         ...req.body,
@@ -31,12 +20,9 @@ export const createTest = asyncHandler(async (req, res) => {
     );
 });
 
-/**
- * Get all active tests
- * GET /api/tests
- */
+// 2. Get all active tests
 export const getAllTests = asyncHandler(async (req, res) => {
-    const labId = await getLabIdFromUser(req.user.userId || req.user._id);
+    const labId = req.user.labId;
     const tests = await testService.getAllTests(labId);
 
     res.status(200).json(
@@ -44,12 +30,9 @@ export const getAllTests = asyncHandler(async (req, res) => {
     );
 });
 
-/**
- *     Get test by ID
- *    GET /api/tests/:id
- */
+// 3. Get test by ID
 export const getTestById = asyncHandler(async (req, res) => {
-    const labId = await getLabIdFromUser(req.user.userId || req.user._id);
+    const labId = req.user.labId;
     const test = await testService.getTestById(
         req.params.id,
         labId
@@ -64,12 +47,9 @@ export const getTestById = asyncHandler(async (req, res) => {
     );
 });
 
-/**
- *     Update test
- *    PUT /api/tests/:id
- */
+// 4. Update test
 export const updateTest = asyncHandler(async (req, res) => {
-    const labId = await getLabIdFromUser(req.user.userId || req.user._id);
+    const labId = req.user.labId;
     const updatedTest = await testService.updateTest(
         req.params.id,
         req.body,
@@ -85,12 +65,9 @@ export const updateTest = asyncHandler(async (req, res) => {
     );
 });
 
-/**
- * delete test
- * DELETE /api/tests/:id
- */
+// 5. Delete test
 export const deleteTest = asyncHandler(async (req, res) => {
-    const labId = await getLabIdFromUser(req.user.userId || req.user._id);
+    const labId = req.user.labId;
     const deletedTest = await testService.deleteTest(
         req.params.id,
         labId

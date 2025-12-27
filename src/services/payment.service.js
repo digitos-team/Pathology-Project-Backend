@@ -5,7 +5,7 @@ import * as commissionService from "./commission.service.js";
 import * as revenueService from "./revenue.service.js";
 
 // Record payment and trigger downstream processes
-export const recordPayment = async ({ billId, amount, paymentMethod, transactionId, labId }) => {
+export const recordPayment = async ({ billId, amount, paymentMethod, transactionId, labId, discountId }) => {
     // Validate bill
     const bill = await Bill.findById(billId)
         .populate({
@@ -25,10 +25,30 @@ export const recordPayment = async ({ billId, amount, paymentMethod, transaction
         throw new ApiError(400, "Cannot pay cancelled bill");
     }
 
+    // Handle Discount
+    let discountAmount = 0;
+    if (discountId) {
+        const Discount = (await import("../models/discount.model.js")).default;
+        const discount = await Discount.findOne({ _id: discountId, labId, isActive: true });
+
+        if (discount) {
+            if (discount.type === "PERCENT") {
+                discountAmount = (bill.totalAmount * discount.value) / 100;
+            } else {
+                discountAmount = discount.value;
+            }
+
+            bill.discountId = discountId;
+            bill.discountAmount = discountAmount;
+        }
+    }
+
+    const finalAmount = bill.totalAmount - discountAmount;
+
     // Create payment record
     const payment = await Payment.create({
         billId,
-        amount,
+        amount: finalAmount, // Store the actual amount paid
         paymentMethod,
         transactionId,
         labId,
@@ -45,7 +65,7 @@ export const recordPayment = async ({ billId, amount, paymentMethod, transaction
         commission = await commissionService.calculateAndRecordCommission({
             doctorId: bill.testOrderId.doctor._id,
             doctorCommissionPercent: bill.testOrderId.doctor.commissionPercentage || 0,
-            totalAmount: bill.totalAmount,
+            totalAmount: finalAmount, // Commission on discounted amount
             billId: bill._id,
             labId,
         });
@@ -54,7 +74,7 @@ export const recordPayment = async ({ billId, amount, paymentMethod, transaction
     // Record revenue
     const revenue = await revenueService.recordRevenue({
         billId: bill._id,
-        totalAmount: bill.totalAmount,
+        totalAmount: finalAmount, // Revenue is discounted amount
         commissionAmount: commission?.amount || 0,
         labId,
     });

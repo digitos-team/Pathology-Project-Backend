@@ -5,11 +5,11 @@ import * as paymentService from "../services/payment.service.js";
 
 // Record payment (triggers bill status update, commission, revenue)
 export const recordPaymentController = asyncHandler(async (req, res) => {
-    const { billId, amount, paymentMethod, transactionId } = req.body;
+    const { billId, amount, paymentMethod, transactionId, discountId } = req.body;
     const labId = req.user.labId;
 
-    if (!billId || !amount || !paymentMethod) {
-        throw new ApiError(400, "Bill ID, amount, and payment method are required");
+    if (!billId || !paymentMethod) {
+        throw new ApiError(400, "Bill ID and payment method are required");
     }
 
     const result = await paymentService.recordPayment({
@@ -18,6 +18,7 @@ export const recordPaymentController = asyncHandler(async (req, res) => {
         paymentMethod,
         transactionId,
         labId,
+        discountId,
     });
 
     res.status(201).json(new ApiResponse(201, result, "Payment recorded successfully"));

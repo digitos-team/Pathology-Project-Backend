@@ -50,7 +50,25 @@ const patientSchema = new mongoose.Schema(
       default: true,
     },
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true }
+  }
 );
+
+// Virtual for Test Orders (as testHistory for clarity)
+patientSchema.virtual("testHistory", {
+  ref: "TestOrder",
+  localField: "_id",
+  foreignField: "patientId"
+});
+
+// Virtual for Test Orders
+patientSchema.virtual("testOrders", {
+  ref: "TestOrder",
+  localField: "_id",
+  foreignField: "patientId"
+});
 
 export default mongoose.model("Patient", patientSchema);

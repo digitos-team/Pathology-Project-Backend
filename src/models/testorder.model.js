@@ -33,7 +33,7 @@ const testOrderSchema = new mongoose.Schema({
     required: true,
     index: true
   },
-  
+
   labId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "PathologyLab",
@@ -43,7 +43,11 @@ const testOrderSchema = new mongoose.Schema({
   doctor: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "Doctor",
-    required: true
+    // Make optional to support external reports
+  },
+
+  doctorName: {
+    type: String, // For external doctors
   },
 
   orderDate: {
@@ -60,6 +64,11 @@ const testOrderSchema = new mongoose.Schema({
     default: "PENDING"
   },
 
+  isHistorical: {
+    type: Boolean,
+    default: false
+  },
+
   totalAmount: {
     type: Number,
     required: true
@@ -70,6 +79,10 @@ const testOrderSchema = new mongoose.Schema({
     ref: "Bill"
   }
 
-}, { timestamps: true });
+}, {
+  timestamps: true,
+  toJSON: { virtuals: true },
+  toObject: { virtuals: true }
+});
 
 export default mongoose.model("TestOrder", testOrderSchema);

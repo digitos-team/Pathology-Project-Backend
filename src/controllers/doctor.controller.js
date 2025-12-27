@@ -11,9 +11,9 @@ import {
 // 1. Add Doctor
 export const addDoctorController = asyncHandler(async (req, res) => {
     const doctorData = req.body;
-    const adminId = req.user.userId;
+    const labId = req.user.labId;
 
-    const doctor = await createDoctorService(doctorData, adminId);
+    const doctor = await createDoctorService(doctorData, labId);
 
     res.status(201).json(new ApiResponse(201, doctor, "Doctor added successfully"));
 });
@@ -30,13 +30,13 @@ export const updateDoctorController = asyncHandler(async (req, res) => {
 
 // 3. List All Doctors
 export const getAllDoctorsController = asyncHandler(async (req, res) => {
-    const adminId = req.user.userId;
+    const labId = req.user.labId;
 
-    const doctors = await getAllDoctorsService(adminId);
+    const doctors = await getAllDoctorsService(labId);
 
     // Check if empty? Service returns empty array.
     if (!doctors || doctors.length === 0) {
-        return res.json(new ApiResponse(200, [], "No Lab found, hence no doctors"));
+        return res.json(new ApiResponse(200, [], "No doctors found for this lab"));
     }
 
     res.json(new ApiResponse(200, doctors, "Doctors fetched successfully"));

@@ -2,7 +2,7 @@ import Bill from "../models/bill.model.js";
 import { ApiError } from "../utils/ApiError.js";
 
 // Generate bill (Pending or Paid)
-export const generateBill = async ({ patientId, testOrderId, testReports, items, totalAmount, labId, paymentId }) => {
+export const generateBill = async ({ patientId, testOrderId, items, totalAmount, labId, paymentId }) => {
     // Generate Bill Number
     const count = await Bill.countDocuments();
     const billNumber = `BILL-${Date.now()}-${count + 1}`;
@@ -11,7 +11,6 @@ export const generateBill = async ({ patientId, testOrderId, testReports, items,
         billNumber,
         patientId,
         testOrderId,
-        testReports,
         items,
         totalAmount,
         labId,
