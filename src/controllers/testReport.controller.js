@@ -10,7 +10,7 @@ import PathologyLab from "../models/pathologyLab.model.js";
  * 1. Create Test Order (assign multiple tests)
  */
 export const createTestOrderController = asyncHandler(async (req, res) => {
-  const { patientId, testIds, doctorId } = req.body;
+  const { patientId, testIds, doctorId } = req.body || {};
   const labId = req.user.labId;
   if (!labId) {
     throw new ApiError(
@@ -82,7 +82,7 @@ export const addHistoricalReportController = asyncHandler(async (req, res) => {
  */
 export const submitTestResultController = asyncHandler(async (req, res) => {
   const { orderId, testItemId } = req.params;
-  const { results, reportFileUrl } = req.body;
+  const { results, reportFileUrl } = req.body || {};
 
   if (!orderId || !testItemId) {
     throw new ApiError(400, "orderId and testItemId are required");
@@ -140,11 +140,45 @@ export const getPatientTestHistoryController = asyncHandler(
 );
 
 /**
+ * 5b. Get patient orders
+ */
+export const getPatientOrdersController = asyncHandler(async (req, res) => {
+  const { patientId } = req.params;
+  const labId = req.user.labId;
+  if (!labId) {
+    throw new ApiError(
+      400,
+      "Lab ID is missing from your session. Please re-login."
+    );
+  }
+
+  const orders = await testOrderService.getPatientOrders(patientId, labId);
+  res.json(new ApiResponse(200, orders, "Patient orders fetched"));
+});
+
+/**
+ * 5c. Get patient completed reports
+ */
+export const getPatientReportsController = asyncHandler(async (req, res) => {
+  const { patientId } = req.params;
+  const labId = req.user.labId;
+  if (!labId) {
+    throw new ApiError(
+      400,
+      "Lab ID is missing from your session. Please re-login."
+    );
+  }
+
+  const reports = await testOrderService.getPatientReports(patientId, labId);
+  res.json(new ApiResponse(200, reports, "Patient reports fetched"));
+});
+
+/**
  * 6. Bulk submit results via bill
  */
 export const submitBulkResultsController = asyncHandler(async (req, res) => {
   const { billId } = req.params;
-  const { results, reportFileUrl } = req.body;
+  const { results, reportFileUrl } = req.body || {};
 
   if (!billId) {
     throw new ApiError(400, "billId is required");

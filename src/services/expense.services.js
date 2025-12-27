@@ -1,14 +1,11 @@
 import Expense from "../models/expense.model.js";
 import PathologyLab from "../models/pathologyLab.model.js";
 import { ApiError } from "../utils/ApiError.js";
+import mongoose from "mongoose";
 
 // 1. Create Expense
-export const createExpenseService = async (data, adminId) => {
-    // Find the lab associated with this admin
-    const lab = await PathologyLab.findOne({ owner: adminId });
-    if (!lab) {
-        throw new ApiError(404, "No Lab found for this Admin. Please update Lab Details first.");
-    }
+export const createExpenseService = async (data, labId) => {
+    // We already have labId from the controller
 
     let finalAmount = data.amount;
 
@@ -20,7 +17,7 @@ export const createExpenseService = async (data, adminId) => {
     const expense = await Expense.create({
         ...data,
         amount: finalAmount, // Store the calculated total
-        lab: lab._id
+        lab: labId
     });
 
     return expense;
@@ -36,13 +33,8 @@ export const updateExpenseService = async (expenseId, updates) => {
 };
 
 // 3. List Expenses (with optional filters)
-export const listExpensesService = async (adminId, query) => {
-    const lab = await PathologyLab.findOne({ owner: adminId });
-    if (!lab) {
-        return [];
-    }
-
-    const filter = { lab: lab._id };
+export const listExpensesService = async (labId, query) => {
+    const filter = { lab: labId };
 
     // Date Range Filter
     if (query.startDate && query.endDate) {
@@ -88,12 +80,14 @@ export const deleteExpenseService = async (expenseId) => {
 };
 
 // 6. Get Expense Report (Monthly/Yearly)
-export const getExpenseReportService = async (adminId, type, year, month) => {
-    const lab = await PathologyLab.findOne({ owner: adminId });
-    if (!lab) return [];
+export const getExpenseReportService = async (labId, type, year, month) => {
+    const labObjectId = mongoose.Types.ObjectId.isValid(labId) ? new mongoose.Types.ObjectId(labId) : null;
 
     const matchStage = {
-        lab: lab._id
+        $or: [
+            { lab: labId },
+            { lab: labObjectId }
+        ].filter(f => f.lab !== null)
     };
 
     const targetYear = parseInt(year);
@@ -177,9 +171,8 @@ export const getExpenseByIdService = async (expenseId) => {
 };
 
 // 7. Get Expense Stats (Monthly & Yearly Total)
-export const getExpenseStatsService = async (adminId) => {
-    const lab = await PathologyLab.findOne({ owner: adminId });
-    if (!lab) return { monthlyTotal: 0, yearlyTotal: 0 };
+export const getExpenseStatsService = async (labId) => {
+    const labObjectId = mongoose.Types.ObjectId.isValid(labId) ? new mongoose.Types.ObjectId(labId) : null;
 
     const now = new Date();
     // Start of Current Month
@@ -189,7 +182,14 @@ export const getExpenseStatsService = async (adminId) => {
     const startOfYear = new Date(now.getFullYear(), 0, 1);
 
     const pipeline = [
-        { $match: { lab: lab._id } },
+        {
+            $match: {
+                $or: [
+                    { lab: labId },
+                    { lab: labObjectId }
+                ].filter(f => f.lab !== null)
+            }
+        },
         {
             $facet: {
                 monthly: [

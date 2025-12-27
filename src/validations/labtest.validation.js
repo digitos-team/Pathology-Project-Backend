@@ -4,10 +4,13 @@ import Joi from "joi";
 const parameterSchema = Joi.object({
   name: Joi.string().required(),
   unit: Joi.string().required(),
-  referenceRange: Joi.object({
-    min: Joi.number().required(),
-    max: Joi.number().greater(Joi.ref("min")).required(),
-  }).required(),
+  referenceRanges: Joi.array().items(
+    Joi.object({
+      gender: Joi.string().valid("Male", "Female").required(),
+      min: Joi.number().required(),
+      max: Joi.number().greater(Joi.ref("min")).required(),
+    })
+  ).min(1).required(),
 });
 
 const categoryEnum = [

@@ -2,6 +2,11 @@ import mongoose from "mongoose";
 
 const referenceRangeSchema = new mongoose.Schema(
   {
+    gender: {
+      type: String,
+      enum: ["Male", "Female"],
+      default: "Male",
+    },
     min: {
       type: Number,
       required: true,
@@ -24,13 +29,19 @@ const parameterSchema = new mongoose.Schema(
 
     unit: {
       type: String,
-      required: true, // keep it flexible, no enum
+      required: true,
       trim: true,
     },
 
-    referenceRange: {
-      type: referenceRangeSchema,
+    referenceRanges: {
+      type: [referenceRangeSchema],
       required: true,
+      validate: {
+        validator: function (v) {
+          return Array.isArray(v) && v.length > 0;
+        },
+        message: "At least one reference range is required",
+      },
     },
   },
   { _id: false }

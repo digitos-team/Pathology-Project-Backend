@@ -1,4 +1,4 @@
-import TestReport from "../models/testReport.model.js";
+// import TestReport from "../models/testReport.model.js"; // consolidated into TestOrder
 // ✅ ADDED
 import Patient from "../models/patient.model.js";
 import LabTest from "../models/labtest.model.js";
@@ -83,16 +83,23 @@ export const addHistoricalReport = async ({
   labId,
   testId,
 }) => {
-  const report = await TestReport.create({
+  const report = await TestOrder.create({
     patientId,
-    testId,
     labId,
-    testName,
-    testDate: testDate || new Date(),
-    status: "COMPLETED",
-    results: [],
-    reportFileUrl,
     doctorName: doctorName || "External",
+    orderDate: testDate || new Date(),
+    overallStatus: "COMPLETED",
+    isHistorical: true,
+    totalAmount: 0,
+    tests: [
+      {
+        testId: testId || new mongoose.Types.ObjectId(), // Fallback if no testId
+        testName,
+        status: "COMPLETED",
+        reportFileUrl,
+        results: [],
+      },
+    ],
   });
   return report;
 };
@@ -157,27 +164,35 @@ export const getPendingOrders = async (labId) => {
 
 export const getPatientTestHistory = async (patientId, labId) => {
   const orders = await TestOrder.find({ patientId, labId })
+    .populate("patientId", "fullName phone age gender")
     .populate("doctor", "name")
     .sort({ orderDate: -1 });
 
-  const reports = await TestReport.find({ patientId, labId })
-    .populate("doctor", "name")
-    .sort({ testDate: -1 });
+  const activeOrders = orders.filter((o) => o.overallStatus !== "COMPLETED");
+  const completedReports = orders.filter(
+    (o) => o.overallStatus === "COMPLETED"
+  );
 
-  return { orders, reports };
+  return { orders: activeOrders, reports: completedReports };
 };
 // 5. Get Patient Orders (active/recent) ✅ NEW
 export const getPatientOrders = async (patientId, labId) => {
   return await TestOrder.find({ patientId, labId })
+    .populate("patientId", "fullName phone age gender")
     .populate("doctor", "name")
     .sort({ orderDate: -1 });
 };
 
-// 5b. Get Patient Reports (historical/finalized) ✅ KEPT
+// 5b. Get Patient Reports (historical/finalized) ✅ UPDATED
 export const getPatientReports = async (patientId, labId) => {
-  return await TestReport.find({ patientId, labId })
+  return await TestOrder.find({
+    patientId,
+    labId,
+    overallStatus: "COMPLETED",
+  })
+    .populate("patientId", "fullName phone age gender")
     .populate("doctor", "name")
-    .sort({ testDate: -1 });
+    .sort({ orderDate: -1 });
 };
 
 // 6. Bulk Submit Results by Bill ✅ UPDATED
@@ -233,7 +248,7 @@ export const submitBulkResultsByBill = async (
   return order;
 };
 
-// 7. Finalize Test Order (unchanged - good!)
+// 7. Finalize Test Order (Mark overallStatus as COMPLETED)
 export const finalizeTestOrder = async (orderId) => {
   const order = await TestOrder.findById(orderId);
 
@@ -241,27 +256,15 @@ export const finalizeTestOrder = async (orderId) => {
     throw new ApiError(404, "Test Order not found");
   }
 
-  if (order.overallStatus !== "COMPLETED") {
+  const allCompleted = order.tests.every((test) => test.status === "COMPLETED");
+  if (!allCompleted) {
     throw new ApiError(400, "Cannot finalize - not all tests completed");
   }
 
-  const reports = [];
-  for (const test of order.tests) {
-    const report = await TestReport.create({
-      patientId: order.patientId,
-      testId: test.testId,
-      labId: order.labId,
-      testName: test.testName,
-      testDate: order.orderDate,
-      status: "COMPLETED",
-      results: test.results,
-      reportFileUrl: test.reportFileUrl,
-      doctor: order.doctor,
-    });
-    reports.push(report);
-  }
+  order.overallStatus = "COMPLETED";
+  await order.save();
 
-  return reports;
+  return order;
 };
 
 // 8. Get Test Order by ID with full details

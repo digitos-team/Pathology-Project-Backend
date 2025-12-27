@@ -16,12 +16,6 @@ const billSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: "TestOrder",
     },
-    testReports: [
-        {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: "TestReport",
-        },
-    ],
     items: [
         {
             name: String,
@@ -41,6 +35,14 @@ const billSchema = new mongoose.Schema({
     totalAmount: {
         type: Number,
         required: true,
+    },
+    discountId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Discount",
+    },
+    discountAmount: {
+        type: Number,
+        default: 0,
     },
     labId: {
         type: mongoose.Schema.Types.ObjectId,

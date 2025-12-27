@@ -14,7 +14,7 @@ import {
 
 // 1. Add Expense
 export const addExpenseController = asyncHandler(async (req, res) => {
-  const labId = req.user.labId;
+  const adminId = req.user.userId;
   const expenseData = req.body;
 
   // Handle File Upload
@@ -25,7 +25,7 @@ export const addExpenseController = asyncHandler(async (req, res) => {
     expenseData.receiptUrl = `temp/${req.file.filename}`;
   }
 
-  const expense = await createExpenseService(expenseData, labId);
+  const expense = await createExpenseService(expenseData, adminId);
 
   res
     .status(201)
@@ -49,10 +49,10 @@ export const updateExpenseController = asyncHandler(async (req, res) => {
 
 // 3. List Expenses
 export const listExpensesController = asyncHandler(async (req, res) => {
-  const labId = req.user.labId;
+  const adminId = req.user.userId;
   const query = req.query; // e.g., ?date=2023-10-27&category=RENT
 
-  const expenses = await listExpensesService(labId, query);
+  const expenses = await listExpensesService(adminId, query);
 
   res.json(new ApiResponse(200, expenses, "Expenses fetched successfully"));
 });
@@ -79,7 +79,7 @@ export const getExpenseByIdController = asyncHandler(async (req, res) => {
 
 // 6. Get Expense Report
 export const getExpenseReportController = asyncHandler(async (req, res) => {
-  const labId = req.user.labId;
+  const adminId = req.user.userId;
   const { type, year, month } = req.query;
 
   if (!type || !year) {
@@ -90,7 +90,7 @@ export const getExpenseReportController = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Month is required for monthly reports");
   }
 
-  const report = await getExpenseReportService(labId, type, year, month);
+  const report = await getExpenseReportService(adminId, type, year, month);
 
   res.json(new ApiResponse(200, report, "Expense report fetched successfully"));
 });
@@ -98,7 +98,7 @@ export const getExpenseReportController = asyncHandler(async (req, res) => {
 // 7. Download Expense Report (PDF)
 export const downloadExpenseReportController = asyncHandler(
   async (req, res) => {
-    const labId = req.user.labId;
+    const adminId = req.user.userId;
     const { type, year, month } = req.query;
 
     if (!type || !year) {
@@ -107,7 +107,12 @@ export const downloadExpenseReportController = asyncHandler(
 
     // Reuse service logic to get data
     // reportData contains { breakdown, grandTotal }
-    const reportData = await getExpenseReportService(labId, type, year, month);
+    const reportData = await getExpenseReportService(
+      adminId,
+      type,
+      year,
+      month
+    );
 
     // Create PDF Document
     const doc = new PDFDocument({ margin: 30 });
@@ -132,7 +137,7 @@ export const downloadExpenseReportController = asyncHandler(
 
 // 8. Get Expense Stats
 export const getExpenseStatsController = asyncHandler(async (req, res) => {
-  const labId = req.user.labId;
-  const stats = await getExpenseStatsService(labId);
+  const adminId = req.user.userId;
+  const stats = await getExpenseStatsService(adminId);
   res.json(new ApiResponse(200, stats, "Expense stats fetched successfully"));
 });

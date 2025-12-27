@@ -49,8 +49,9 @@ const testOrderSchema = new mongoose.Schema(
     doctor: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Doctor",
-      required: true,
+      // Make optional to support external reports
     },
+    doctorName: String, // For external doctors
 
     orderDate: {
       type: Date,
@@ -64,6 +65,10 @@ const testOrderSchema = new mongoose.Schema(
       type: String,
       enum: ["PENDING", "PARTIAL", "COMPLETED"],
       default: "PENDING",
+    },
+    isHistorical: {
+      type: Boolean,
+      default: false,
     },
 
     totalAmount: {

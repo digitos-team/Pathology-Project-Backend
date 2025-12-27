@@ -10,6 +10,7 @@ import paymentRoutes from "./routes/payment.routes.js";
 import billRoutes from "./routes/bill.routes.js";
 import revenueRoutes from "./routes/revenue.routes.js";
 import commissionRoutes from "./routes/commission.routes.js";
+import discountRoutes from "./routes/discount.routes.js";
 import { errorHandler } from "./middleware/errorHandler.middleware.js";
 import cookieParser from "cookie-parser";
 export const app = express();
@@ -31,6 +32,7 @@ app.use("/api/payments", paymentRoutes);
 app.use("/api/bills", billRoutes);
 app.use("/api/revenue", revenueRoutes);
 app.use("/api/commission", commissionRoutes);
+app.use("/api/discounts", discountRoutes);
 // Health check
 app.get("/", (req, res) => {
   res.json({ message: "Pathology Lab API is running" });

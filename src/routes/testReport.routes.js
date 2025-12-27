@@ -3,7 +3,9 @@ import {
   createTestOrderController as assignTestController,
   submitTestResultController,
   getPendingOrdersController as getPendingTestsController,
-  getPatientTestHistoryController as getPatientReportsController,
+  getPatientTestHistoryController,
+  getPatientOrdersController,
+  getPatientReportsController as getPatientCompletedReportsController,
   addHistoricalReportController,
   submitBulkResultsController,
   finalizeTestOrderController,
@@ -13,6 +15,7 @@ import {
   authMiddleware,
   adminMiddleware,
 } from "../middleware/user.middleware.js";
+import { upload } from "../middleware/multer.middleware.js";
 
 const router = express.Router();
 
@@ -23,7 +26,11 @@ router.use(authMiddleware);
 router.post("/createtestorder", assignTestController);
 
 // Add Historical/External Report (Receptionist/Admin)
-router.post("/add-report", addHistoricalReportController);
+router.post(
+  "/add-report",
+  upload.single("reportFileUrl"),
+  addHistoricalReportController
+);
 
 // Submit Results (Technician/Admin)
 router.put("/result/:orderId/:testItemId", submitTestResultController);
@@ -37,8 +44,14 @@ router.get("/pending", getPendingTestsController);
 // Finalize Test Order (Technician/Admin)
 router.get("/finalize/:orderId", finalizeTestOrderController);
 
-// Get Patient History
-router.get("/patient/:patientId", getPatientReportsController);
+// Get Patient Active Orders
+router.get("/patient/:patientId/orders", getPatientOrdersController);
+
+// Get Patient Completed Reports
+router.get("/patient/:patientId/reports", getPatientCompletedReportsController);
+
+// Get Patient History (Combined) - Must be last as it matches generic :patientId
+router.get("/patient/:patientId", getPatientTestHistoryController);
 
 // Download Test Report PDF
 router.get("/:orderId/download", downloadTestReportPDFController);
