@@ -11,13 +11,13 @@ export const sendReportEmail = asyncHandler(async ({ to, pdfPath, patientName })
   });
 
   await transporter.sendMail({
-    from: `"Your Lab" <${process.env.EMAIL_USER}>`,
+    from: `"Digitos Pathology" <${process.env.EMAIL_USER}>`,
     to,
     subject: "Your Pathology Report",
     html: `
       <p>Dear ${patientName},</p>
       <p>Your pathology report is attached.</p>
-      <p>Regards,<br/>Your Lab Team</p>
+      <p>Regards,<br/>Digitos Pathology Team</p>
     `,
     attachments: [
       {

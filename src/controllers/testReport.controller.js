@@ -144,12 +144,14 @@ export const finalizeTestOrderController = asyncHandler(async (req, res) => {
 
 // Sends Report to patient Via Email
 
-export const generateAndSendReport =asyncHandler(async(req,res)=>{
-      try {
+export const generateAndSendReportViaEmail = asyncHandler(async (req, res) => {
+  let patient; // ✅ declare outside
+
+  try {
     const { patientId } = req.params;
 
-    // 🔹 STEP 1 — FETCH PATIENT (HERE)
-    const patient = await Patient.findById(patientId);
+    // 🔹 STEP 1 — FETCH PATIENT
+    patient = await Patient.findById(patientId);
 
     if (!patient) {
       return res.status(404).json({ message: "Patient not found" });
@@ -167,7 +169,7 @@ export const generateAndSendReport =asyncHandler(async(req,res)=>{
     const sendsEmail = await sendReportEmail({
       to: patient.email,
       pdfPath: patient.reportPdfPath,
-      patientName: patient.name
+      patientName: patient.name,
     });
 
     // 🔹 STEP 3 — UPDATE STATUS
@@ -175,13 +177,19 @@ export const generateAndSendReport =asyncHandler(async(req,res)=>{
     patient.emailSentAt = new Date();
     await patient.save();
 
-   return res.status(200).json(
-    new ApiResponse(200, sendsEmail, "Report sent successfully")
-   )
-
+    return res
+      .status(200)
+      .json(new ApiResponse(200, sendsEmail, "Report sent successfully"));
   } catch (error) {
     console.error(error);
+
+    // ✅ update only if patient exists
+    if (patient) {
+      patient.reportStatus = "failed";
+      patient.emailSentAt = new Date();
+      await patient.save();
+    }
+
     throw new ApiError(500, "Failed to send report");
   }
-}
-)
+});

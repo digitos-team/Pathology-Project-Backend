@@ -6,7 +6,8 @@ import {
   getPatientTestHistoryController as getPatientReportsController,
   addHistoricalReportController,
   submitBulkResultsController,
-  finalizeTestOrderController
+  finalizeTestOrderController,
+  generateAndSendReportViaEmail 
 } from "../controllers/testReport.controller.js";
 import { authMiddleware, adminMiddleware } from "../middleware/user.middleware.js";
 
@@ -35,5 +36,8 @@ router.get("/finalize/:orderId", finalizeTestOrderController);
 
 // Get Patient History
 router.get("/patient/:patientId", getPatientReportsController);
+
+//Sent Report Via Email
+router.get("/send-report/:patientId", generateAndSendReportViaEmail);
 
 export default router;
