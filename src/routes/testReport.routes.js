@@ -9,6 +9,7 @@ import {
   addHistoricalReportController,
   submitBulkResultsController,
   finalizeTestOrderController,
+  generateAndSendReportViaEmail,
   downloadTestReportPDFController,
 } from "../controllers/testReport.controller.js";
 import {
@@ -44,6 +45,11 @@ router.get("/pending", getPendingTestsController);
 // Finalize Test Order (Technician/Admin)
 router.get("/finalize/:orderId", finalizeTestOrderController);
 
+// Get Patient History
+router.get("/patient/:patientId", getPatientReportsController);
+
+//Sent Report Via Email
+router.get("/send-report/:patientId", generateAndSendReportViaEmail);
 // Get Patient Active Orders
 router.get("/patient/:patientId/orders", getPatientOrdersController);
 

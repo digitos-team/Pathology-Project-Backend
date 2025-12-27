@@ -10,40 +10,46 @@ import {
 } from "../validations/user.validation.js";
 import { ApiError } from "../utils/ApiError.js";
 
+
 export const registerUserController = asyncHandler(async (req, res) => {
   const { name, email, password, role } = req.body;
   const loggedInUser = req.user;
 
-  // 🔒 Authentication check (non-negotiable)
-  if (!loggedInUser) {
-    throw new ApiError(401, "Authentication required");
-  }
+  let finalRole = role;
+  let createdBy = null;
 
-  // 🔒 STRICT ROLE RULES
   if (role === "RECEPTIONIST") {
+    // 🔒 Authentication check for RECEPTIONIST
+    if (!loggedInUser) {
+      throw new ApiError(401, "Authentication required to create receptionist");
+    }
     if (loggedInUser.role !== "ADMIN") {
       throw new ApiError(403, "Only admin can create receptionist");
     }
-
     validateCreateReceptionistRequest(req.body);
-  }
-  else {
-    // ❌ No admin creation via this API
-    throw new ApiError(403, "Invalid or forbidden role creation");
+    createdBy = loggedInUser.userId;
+    finalRole = "RECEPTIONIST";
+  } else if (role === "ADMIN") {
+    // Allow public ADMIN registration (e.g., for initial setup)
+    // You might want to add a check here if an ADMIN already exists to prevent multiple admins if that's the requirement
+    finalRole = "ADMIN";
+  } else {
+    throw new ApiError(400, "Invalid role specified");
   }
 
   const user = await userService.registerUserService({
     name,
     email,
     password,
-    role: "RECEPTIONIST",
-    createdBy: loggedInUser.userId,
+    role: finalRole,
+    createdBy,
   });
 
   res
     .status(201)
     .json(new ApiResponse(201, user, "Receptionist created successfully"));
 });
+
 export const loginController = asyncHandler(async (req, res) => {
   validateLoginRequest(req.body);
   const { email, password } = req.body;
@@ -68,9 +74,9 @@ export const updateUserController = asyncHandler(async (req, res) => {
   res.json(new ApiResponse(200, updated, "User profile updated"));
 });
 
-export const updateLabDetailsController = asyncHandler(async (req, res) => {
+export const createOrupdateLabDetailsController = asyncHandler(async (req, res) => {
   const adminId = req.user.userId;
-  const updatedLab = await userService.updateLabDetailsService(adminId, req.body);
+  const updatedLab = await userService.createOrupdateLabDetailsService(adminId, req.body);
   res.json(new ApiResponse(200, updatedLab, "Lab details updated successfully"));
 });
 

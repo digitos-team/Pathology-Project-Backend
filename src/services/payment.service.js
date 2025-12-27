@@ -93,8 +93,32 @@ export const getPaymentsByBill = async (billId) => {
 };
 
 // Get all payments for a lab
-export const getLabPayments = async (labId) => {
-    return await Payment.find({ labId })
+export const getLabPaymentsService = async (labId, query) => {
+    // 🔹 Pagination
+    const page = parseInt(query.page, 10) || 1;
+    const limit = parseInt(query.limit, 10) || 10;
+    const skip = (page - 1) * limit;
+
+    // 🔹 Filter
+    const filter = { labId };
+
+    // 🔹 Total count
+    const totalRecords = await Payment.countDocuments(filter);
+
+    // 🔹 Paginated data
+    const payments = await Payment.find(filter)
         .populate("billId")
-        .sort({ createdAt: -1 });
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit);
+
+    return {
+        data: payments,
+        pagination: {
+            totalRecords,
+            totalPages: Math.ceil(totalRecords / limit),
+            currentPage: page,
+            limit,
+        },
+    };
 };

@@ -21,9 +21,14 @@ export const createPatient = asyncHandler(async (req, res) => {
   res
     .status(201)
     .json(new ApiResponse(201, patient, "Patient registered successfully"));
+  const patient = await patientService.createPatient(req.body, req.user.userId);
+
+  res
+    .status(201)
+    .json(new ApiResponse(201, patient, "Patient registered successfully"));
 });
 
-// Get All Patients
+// Get All Patients Added Pagination
 export const getPatients = asyncHandler(async (req, res) => {
   const labId = req.user.labId;
   if (!labId) {
@@ -36,6 +41,33 @@ export const getPatients = asyncHandler(async (req, res) => {
   res
     .status(200)
     .json(new ApiResponse(200, patients, "Patients fetched successfully"));
+  // Extract pagination and filter parameters from query string
+  const options = {
+    page: req.query.page,
+    limit: req.query.limit,
+    search: req.query.search,
+    gender: req.query.gender,
+    sortBy: req.query.sortBy,
+    sortOrder: req.query.sortOrder,
+    ageMin: req.query.ageMin,
+    ageMax: req.query.ageMax,
+  };
+
+  const result = await patientService.getPatientsByLab(
+    req.user.userId,
+    options
+  );
+
+  res.status(200).json(
+    new ApiResponse(
+      200,
+      {
+        patients: result.patients,
+        pagination: result.pagination,
+      },
+      "Patients fetched successfully"
+    )
+  );
 });
 
 // Get Patient Profile
@@ -87,4 +119,27 @@ export const searchPatient = asyncHandler(async (req, res) => {
   }
   const patients = await patientService.searchPatient(labId, req.query);
   res.status(200).json(new ApiResponse(200, patients, "Patients found"));
+});
+
+//get daily patient
+export const getDailyPatient = asyncHandler(async (req, res) => {
+  const { year, month } = req.query;
+
+  if (!year || !month) {
+    return res
+      .status(400)
+      .json(new ApiResponse(400, null, "Year and month are required"));
+  }
+
+  const labId = req.user.labId;
+
+  const data = await patientService.dailypatient(
+    labId,
+    Number(year),
+    Number(month)
+  );
+
+  res
+    .status(200)
+    .json(new ApiResponse(200, data, "Daily patient fetched successfully"));
 });

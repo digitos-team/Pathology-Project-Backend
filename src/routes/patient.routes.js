@@ -5,6 +5,7 @@ import {
   getPatientById,
   updatePatient,
   searchPatient,
+  getDailyPatient,
 } from "../controllers/patient.controller.js";
 
 import {
@@ -33,4 +34,5 @@ router.get("/getpatientbyid/:id", getPatientById);
 // Update patient
 router.put("/updatepatient/:id", updatePatient);
 
+router.get("/daily", getDailyPatient);
 export default router;

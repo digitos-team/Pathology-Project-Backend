@@ -29,6 +29,6 @@ const revenueSchema = new mongoose.Schema(
         timestamps: true,
     }
 );
-
+revenueSchema.index({ labId: 1, createdAt: -1 });
 const Revenue = mongoose.model("Revenue", revenueSchema);
 export default Revenue;

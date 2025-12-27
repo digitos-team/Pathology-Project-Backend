@@ -2,6 +2,8 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import * as testOrderService from "../services/testReport.service.js";
+import { sendReportEmail } from "../services/email.service.js";
+import Patient from "../models/patient.model.js";
 import PDFDocument from "pdfkit";
 import { generateTestReportPDF } from "../utils/pdfGenerator.js";
 import PathologyLab from "../models/pathologyLab.model.js";
@@ -238,3 +240,55 @@ export const downloadTestReportPDFController = asyncHandler(
     doc.end();
   }
 );
+
+// Sends Report to patient Via Email
+
+export const generateAndSendReportViaEmail = asyncHandler(async (req, res) => {
+  let patient; // ✅ declare outside
+
+  try {
+    const { patientId } = req.params;
+
+    // 🔹 STEP 1 — FETCH PATIENT
+    patient = await Patient.findById(patientId);
+
+    if (!patient) {
+      return res.status(404).json({ message: "Patient not found" });
+    }
+
+    if (!patient.email) {
+      return res.status(400).json({ message: "Patient email missing" });
+    }
+
+    if (!patient.reportPdfPath) {
+      return res.status(400).json({ message: "Report PDF not generated yet" });
+    }
+
+    // 🔹 STEP 2 — SEND EMAIL
+    const sendsEmail = await sendReportEmail({
+      to: patient.email,
+      pdfPath: patient.reportPdfPath,
+      patientName: patient.name,
+    });
+
+    // 🔹 STEP 3 — UPDATE STATUS
+    patient.reportStatus = "sent";
+    patient.emailSentAt = new Date();
+    await patient.save();
+
+    return res
+      .status(200)
+      .json(new ApiResponse(200, sendsEmail, "Report sent successfully"));
+  } catch (error) {
+    console.error(error);
+
+    // ✅ update only if patient exists
+    if (patient) {
+      patient.reportStatus = "failed";
+      patient.emailSentAt = new Date();
+      await patient.save();
+    }
+
+    throw new ApiError(500, "Failed to send report");
+  }
+});
