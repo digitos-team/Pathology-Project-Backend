@@ -21,12 +21,13 @@ export const createPatient = asyncHandler(async (req, res) => {
   res
     .status(201)
     .json(new ApiResponse(201, patient, "Patient registered successfully"));
-  const patient = await patientService.createPatient(req.body, req.user.userId);
-
-  res
-    .status(201)
-    .json(new ApiResponse(201, patient, "Patient registered successfully"));
 });
+//   const patient = await patientService.createPatient(req.body, req.user.userId);
+
+//   res
+//     .status(201)
+//     .json(new ApiResponse(201, patient, "Patient registered successfully"));
+// });
 
 // Get All Patients Added Pagination
 export const getPatients = asyncHandler(async (req, res) => {

@@ -11,6 +11,7 @@ import {
   finalizeTestOrderController,
   generateAndSendReportViaEmail,
   downloadTestReportPDFController,
+  getPatientReportsController,
 } from "../controllers/testReport.controller.js";
 import {
   authMiddleware,
