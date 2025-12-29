@@ -19,7 +19,6 @@ export const app = express();
 // Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use("/uploads", express.static(path.join(process.cwd(), "uploads"))); // Serve files from public directory
 app.use(express.static("public")); // Serve files from public directory
 app.use(cookieParser());
 // Routes

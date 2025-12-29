@@ -98,4 +98,11 @@ patientSchema.index({ labId: 1, gender: 1, createdAt: -1 });
 // Text index for full-text search (name and phone)
 patientSchema.index({ fullName: "text", phone: "text" });
 
+// Virtual for test history
+patientSchema.virtual("testHistory", {
+  ref: "TestOrder",
+  localField: "_id",
+  foreignField: "patientId",
+});
+
 export default mongoose.model("Patient", patientSchema);

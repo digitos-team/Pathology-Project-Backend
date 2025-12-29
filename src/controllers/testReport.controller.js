@@ -7,6 +7,8 @@ import Patient from "../models/patient.model.js";
 import PDFDocument from "pdfkit";
 import { generateTestReportPDF } from "../utils/pdfGenerator.js";
 import PathologyLab from "../models/pathologyLab.model.js";
+import fs from "fs";
+import path from "path";
 
 import path from "path";
 import fs from "fs";
@@ -280,7 +282,7 @@ export const downloadTestReportPDFController = asyncHandler(
 );
 // Sends Report to patient Via Email
 export const generateAndSendReportViaEmail = asyncHandler(async (req, res) => {
-  let patient; // ✅ declare outside
+  let patient; // declare outside
 
   try {
     const { patientId } = req.params;
@@ -318,7 +320,7 @@ export const generateAndSendReportViaEmail = asyncHandler(async (req, res) => {
   } catch (error) {
     console.error(error);
 
-    // ✅ update only if patient exists
+    // update only if patient exists
     if (patient) {
       patient.reportStatus = "failed";
       patient.emailSentAt = new Date();

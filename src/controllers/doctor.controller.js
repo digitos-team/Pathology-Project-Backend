@@ -7,11 +7,17 @@ import {
   getDoctorCommissionReportService,
   deleteDoctorService,
 } from "../services/doctor.services.js";
-
+import Doctor from "../models/doctor.model.js";
+import { ApiError } from "../utils/ApiError.js";
 // 1. Add Doctor
 export const addDoctorController = asyncHandler(async (req, res) => {
   const doctorData = req.body;
   const labId = req.user.labId;
+  const existingDoctor = await Doctor.findOne({ email: doctorData.email });
+
+  if (existingDoctor) {
+    throw new ApiError(400, "Doctor with this email already exists");
+  }
 
   const doctor = await createDoctorService(doctorData, labId);
 
