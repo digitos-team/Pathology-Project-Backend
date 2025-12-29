@@ -8,6 +8,7 @@ import * as revenueService from "./revenue.service.js";
 export const recordPayment = async ({ billId, amount, paymentMethod, transactionId, labId, discountId }) => {
     // Validate bill
     const bill = await Bill.findById(billId)
+        .populate("patientId")
         .populate({
             path: 'testOrderId',
             populate: { path: 'doctor' }

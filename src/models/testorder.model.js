@@ -84,4 +84,8 @@ const testOrderSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+// TTL Index: Auto-delete records after 1 year (365 days)
+// 365 * 24 * 60 * 60 = 31536000 seconds
+testOrderSchema.index({ createdAt: 1 }, { expireAfterSeconds: 31536000 });
+
 export default mongoose.model("TestOrder", testOrderSchema);

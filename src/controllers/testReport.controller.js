@@ -8,6 +8,9 @@ import PDFDocument from "pdfkit";
 import { generateTestReportPDF } from "../utils/pdfGenerator.js";
 import PathologyLab from "../models/pathologyLab.model.js";
 
+import path from "path";
+import fs from "fs";
+
 /**
  * 1. Create Test Order (assign multiple tests)
  */
@@ -227,22 +230,55 @@ export const downloadTestReportPDFController = asyncHandler(
     }
 
     const doc = new PDFDocument({ margin: 30, size: "A4" });
+
     const filename = `Report-${order.patientId.fullName.replace(
       /\s+/g,
       "_"
     )}-${Date.now()}.pdf`;
 
-    res.setHeader("Content-Type", "application/pdf");
-    res.setHeader("Content-Disposition", `attachment; filename=${filename}`);
+    // Local directory
+    const reportsDir = path.join(process.cwd(), "uploads", "reports");
+    if (!fs.existsSync(reportsDir)) {
+      fs.mkdirSync(reportsDir, { recursive: true });
+    }
 
+    const filePath = path.join(reportsDir, filename);
+
+    // Store RELATIVE path in DB
+    const reportPdfPath = `/uploads/reports/${filename}`;
+
+    const fileStream = fs.createWriteStream(filePath);
+
+    // Pipe to local file
+    doc.pipe(fileStream);
+
+    // Pipe to response
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
     doc.pipe(res);
+
     generateTestReportPDF(doc, order, lab);
     doc.end();
+
+    // Update patient AFTER file saved
+    fileStream.on("finish", async () => {
+      await Patient.findByIdAndUpdate(order.patientId._id, {
+        reportPdfPath: reportPdfPath,
+        reportStatus: "generated",
+      });
+
+      console.log("Report generated & saved:", reportPdfPath);
+    });
+
+    // Error handling (important)
+    fileStream.on("error", async () => {
+      await Patient.findByIdAndUpdate(order.patientId._id, {
+        reportStatus: "failed",
+      });
+    });
   }
 );
-
 // Sends Report to patient Via Email
-
 export const generateAndSendReportViaEmail = asyncHandler(async (req, res) => {
   let patient; // ✅ declare outside
 
@@ -267,8 +303,8 @@ export const generateAndSendReportViaEmail = asyncHandler(async (req, res) => {
     // 🔹 STEP 2 — SEND EMAIL
     const sendsEmail = await sendReportEmail({
       to: patient.email,
-      pdfPath: patient.reportPdfPath,
-      patientName: patient.name,
+      pdfPath: path.join(process.cwd(), patient.reportPdfPath),
+      patientName: patient.fullName,
     });
 
     // 🔹 STEP 3 — UPDATE STATUS

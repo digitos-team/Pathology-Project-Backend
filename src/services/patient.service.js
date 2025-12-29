@@ -5,6 +5,7 @@ import PathologyLab from "../models/pathologyLab.model.js";
 
 // Helper to get Lab ID
 const getLabIdByOwner = async (userId) => {
+  console.log("[SERVICE] getLabIdByOwner called", { userId });
   const lab = await PathologyLab.findOne({ owner: userId });
   if (!lab) {
     throw new Error("No Lab found for this Admin. Please create a Lab first.");

@@ -1,3 +1,4 @@
+import Revenue from "../models/revenue.model.js";
 import Expense from "../models/expense.model.js";
 import Doctor from "../models/doctor.model.js";
 import { ApiError } from "../utils/ApiError.js";
@@ -69,5 +70,89 @@ export const getDoctorCommissionReport = async (doctorId, startDate, endDate) =>
         commissions,
         totalCommission: total,
         count: commissions.length,
+    };
+};
+
+export const getDetailedDoctorCommission = async (doctorId, startDate, endDate) => {
+    // 1. Fetch Revenues with deep population to find bills linked to this doctor
+    // Note: We scan Revenues within date range, then filter by doctor
+    const dateFilter = {};
+    if (startDate && endDate) {
+        dateFilter.createdAt = {
+            $gte: new Date(new Date(startDate).setHours(0, 0, 0, 0)),
+            $lte: new Date(new Date(endDate).setHours(23, 59, 59, 999))
+        };
+    }
+
+    const revenues = await Revenue.find(dateFilter)
+        .populate({
+            path: 'billId',
+            populate: [
+                {
+                    path: 'testOrderId', // To get doctor
+                    populate: { path: 'doctor' }
+                },
+                {
+                    path: 'patientId', // To get patient name
+                    select: 'fullName'
+                }
+            ]
+        })
+        .sort({ createdAt: -1 });
+
+    // 2. Filter for specific doctor and format
+    const detailedCommissions = revenues
+        .filter(rev => {
+            const docId = rev.billId?.testOrderId?.doctor?._id?.toString();
+            return docId === doctorId.toString() && rev.commissionAmount > 0;
+            // Also ensure commission > 0
+        })
+        .map(rev => ({
+            date: rev.createdAt,
+            patientName: rev.billId?.patientId?.fullName || "Unknown",
+            billNumber: rev.billId?.billNumber,
+            totalBillAmount: rev.totalAmount,
+            commissionAmount: rev.commissionAmount,
+            doctorName: rev.billId?.testOrderId?.doctor?.name,
+            testOrder: rev.billId?.items?.map(i => i.name).join(", ")
+        }));
+
+    return detailedCommissions;
+};
+
+// Get ALL commissions (for Admin) with filters
+// Get ALL commissions (for Admin) with filters
+export const getAllCommissionsService = async (labId, startDate, endDate, page = 1, limit = 10) => {
+    const filter = {
+        lab: labId,
+        category: "COMMISSION"
+    };
+
+    if (startDate && endDate) {
+        filter.date = {
+            $gte: new Date(startDate),
+            $lte: new Date(endDate)
+        };
+    }
+
+    const skip = (page - 1) * limit;
+
+    const [commissions, totalRecords] = await Promise.all([
+        Expense.find(filter)
+            .populate("doctor", "name specialization email phone") // Populate doctor details
+            .sort({ date: -1 })
+            .skip(skip)
+            .limit(limit),
+        Expense.countDocuments(filter)
+    ]);
+
+    return {
+        data: commissions,
+        pagination: {
+            totalRecords,
+            totalPages: Math.ceil(totalRecords / limit),
+            currentPage: Number(page),
+            limit: Number(limit)
+        }
     };
 };

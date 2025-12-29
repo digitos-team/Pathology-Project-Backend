@@ -1,59 +1,4 @@
-// import mongoose from "mongoose";
 
-// const patientSchema = new mongoose.Schema(
-//   {
-//     labId: {
-//       type: mongoose.Schema.Types.ObjectId,
-//       ref: "PathologyLab",
-//       required: true,
-//       index: true,
-//     },
-
-//     createdBy: {
-//       type: mongoose.Schema.Types.ObjectId,
-//       ref: "User",
-//       required: true,
-//     },
-
-//     fullName: {
-//       type: String,
-//       required: true,
-//       trim: true,
-//     },
-
-//     phone: {
-//       type: String,
-//       trim: true,
-//     },
-
-//     age: {
-//       type: Number,
-//       required: true,
-//       min: 0,
-//     },
-
-//     gender: {
-//       type: String,
-//       enum: ["Male", "Female", "Other"],
-//       required: true,
-//     },
-
-//     address: {
-//       street: String,
-//       city: String,
-//       state: String,
-//       pincode: String,
-//     },
-
-//     isActive: {
-//       type: Boolean,
-//       default: true,
-//     },
-//   },
-//   { timestamps: true }
-// );
-
-// export default mongoose.model("Patient", patientSchema);
 import mongoose from "mongoose";
 
 const patientSchema = new mongoose.Schema(
@@ -112,6 +57,13 @@ const patientSchema = new mongoose.Schema(
       enum: ["pending", "generated", "sent", "failed"],
       default: "pending",
     },
+  
+    email: {
+      type: String,
+      trim: true,
+      index: true, // Single field index
+    },
+  
     reportPdfPath: { type: String },
     emailSentAt: { type: Date },
   },
@@ -121,7 +73,12 @@ const patientSchema = new mongoose.Schema(
     toObject: { virtuals: true },
   }
 );
-
+// Virtual for test history
+patientSchema.virtual("testHistory", {
+  ref: "TestOrder",
+  localField: "_id",
+  foreignField: "patientId",
+});
 // ============================================
 // COMPOUND INDEXES FOR OPTIMIZATION
 // ============================================

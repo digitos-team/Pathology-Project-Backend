@@ -1,7 +1,7 @@
 import nodemailer from "nodemailer";
 import { asyncHandler } from "../utils/asyncHandler.js";
 
-export const sendReportEmail = asyncHandler(async ({ to, pdfPath, patientName }) => {
+export const sendReportEmail = async ({ to, pdfPath, patientName }) => {
   const transporter = nodemailer.createTransport({
     service: "gmail",
     auth: {
@@ -26,4 +26,4 @@ export const sendReportEmail = asyncHandler(async ({ to, pdfPath, patientName })
       }
     ]
   });
-})
+}

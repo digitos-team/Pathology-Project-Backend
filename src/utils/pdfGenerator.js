@@ -220,8 +220,7 @@ export const generateBillingReportPDF = (
   doc.moveDown(0.5);
   doc.fontSize(10).font("Helvetica").fillColor("gray");
   doc.text(
-    `Report Type: ${type.toUpperCase()} | Year: ${year}${
-      month ? ` | Month: ${month}` : ""
+    `Report Type: ${type.toUpperCase()} | Year: ${year}${month ? ` | Month: ${month}` : ""
     }`,
     { align: "center" }
   );
@@ -582,5 +581,92 @@ export const generateTestReportPDF = (doc, order, lab) => {
         pageHeight - 45,
         { align: "center", width: rightMargin - leftMargin }
       );
+  }
+};
+
+export const generateDoctorCommissionReportPDF = (doc, data, doctorName, startDate, endDate) => {
+  const accentColor = "#2c3e50";
+  const borderColor = "#cccccc";
+
+  // 1. Title
+  doc.fontSize(18).fillColor(accentColor).text("Doctor Commission Report", { align: "center" });
+  doc.moveDown(0.5);
+
+  // 2. Metadata
+  doc.fontSize(10).fillColor("black").font("Helvetica-Bold");
+  doc.text(`Doctor Name: ${doctorName}`, { align: "center" });
+
+  if (startDate && endDate) {
+    doc.text(`Period: ${new Date(startDate).toLocaleDateString()} - ${new Date(endDate).toLocaleDateString()}`, { align: "center" });
+  } else {
+    doc.text(`Period: All Time`, { align: "center" });
+  }
+
+  doc.moveDown();
+  doc.lineWidth(0.5).strokeColor(borderColor).moveTo(30, doc.y).lineTo(570, doc.y).stroke();
+  doc.moveDown();
+
+  // 3. Table Header
+  const tableTop = doc.y;
+  const colX = { date: 30, patient: 110, tests: 230, bill: 400, comm: 490 };
+
+  doc.font("Helvetica-Bold").fontSize(9).fillColor("black");
+  doc.text("Date", colX.date, tableTop);
+  doc.text("Patient Name", colX.patient, tableTop);
+  doc.text("Tests", colX.tests, tableTop);
+  doc.text("Bill Amt", colX.bill, tableTop, { width: 60, align: "right" });
+  doc.text("Comm Amt", colX.comm, tableTop, { width: 60, align: "right" });
+
+  doc.moveDown(0.5);
+  doc.lineWidth(0.5).moveTo(30, doc.y).lineTo(570, doc.y).stroke();
+  doc.moveDown(0.5);
+
+  let currentY = doc.y;
+  let totalCommission = 0;
+
+  // 4. Data Rows
+  doc.font("Helvetica").fontSize(9);
+
+  data.forEach(item => {
+    // Check page break
+    if (currentY > doc.page.height - 100) {
+      doc.addPage();
+      currentY = 50;
+      // Re-draw header
+      doc.font("Helvetica-Bold").fontSize(9).fillColor("black");
+      doc.text("Date", colX.date, currentY);
+      doc.text("Patient Name", colX.patient, currentY);
+      doc.text("Tests", colX.tests, currentY);
+      doc.text("Bill Amt", colX.bill, currentY, { width: 60, align: "right" });
+      doc.text("Comm Amt", colX.comm, currentY, { width: 60, align: "right" });
+      currentY += 20;
+    }
+
+    doc.text(new Date(item.date).toLocaleDateString(), colX.date, currentY);
+    doc.text(item.patientName ? item.patientName.substring(0, 18) : "N/A", colX.patient, currentY);
+    doc.text(item.testOrder ? item.testOrder.substring(0, 25) : "N/A", colX.tests, currentY);
+    doc.text((item.totalBillAmount || 0).toFixed(2), colX.bill, currentY, { width: 60, align: "right" });
+    doc.text((item.commissionAmount || 0).toFixed(2), colX.comm, currentY, { width: 60, align: "right" });
+
+    totalCommission += (item.commissionAmount || 0);
+    currentY += 20;
+    doc.lineWidth(0.1).strokeColor("#eeeeee").moveTo(30, currentY - 5).lineTo(570, currentY - 5).stroke();
+  });
+
+  // 5. Total
+  doc.moveDown();
+  doc.font("Helvetica-Bold").fontSize(12).fillColor(accentColor);
+  doc.text(`Total Commission: INR ${totalCommission.toFixed(2)}`, { align: "right" });
+
+  // 6. Footer section
+  doc.fillColor("black").font("Helvetica").fontSize(8);
+
+  // Add page numbers
+  const range = doc.bufferedPageRange();
+  for (let i = 0; i < range.count; i++) {
+    doc.switchToPage(i);
+    const footerY = doc.page.height - 50;
+    doc.text(`Page ${i + 1} of ${range.count}`, 30, footerY, { align: "center" });
+    doc.text(`Generated on ${new Date().toLocaleString()}`, 30, footerY + 10, { align: "center" });
   }
 };

@@ -55,7 +55,7 @@ export const getPatients = asyncHandler(async (req, res) => {
   };
 
   const result = await patientService.getPatientsByLab(
-    req.user.userId,
+    req.user.labId,
     options
   );
 

@@ -15,7 +15,13 @@ import {
 
 // 1. Add Expense
 export const addExpenseController = asyncHandler(async (req, res) => {
-  const adminId = req.user.userId;
+  const labId = req.user.labId;
+  if (!labId) {
+    throw new ApiError(
+      400,
+      "Lab ID is missing from your session. Please re-login."
+    );
+  }
   const expenseData = req.body;
 
   // Handle File Upload
@@ -26,7 +32,7 @@ export const addExpenseController = asyncHandler(async (req, res) => {
     expenseData.receiptUrl = `temp/${req.file.filename}`;
   }
 
-  const expense = await createExpenseService(expenseData, adminId);
+  const expense = await createExpenseService(expenseData, labId);
 
   res
     .status(201)
@@ -80,7 +86,13 @@ export const getExpenseByIdController = asyncHandler(async (req, res) => {
 
 // 6. Get Expense Report
 export const getExpenseReportController = asyncHandler(async (req, res) => {
-  const adminId = req.user.userId;
+  const labId = req.user.labId;
+  if (!labId) {
+    throw new ApiError(
+      400,
+      "Lab ID is missing from your session. Please re-login."
+    );
+  }
   const { type, year, month } = req.query;
 
   if (!type || !year) {
@@ -91,7 +103,7 @@ export const getExpenseReportController = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Month is required for monthly reports");
   }
 
-  const report = await getExpenseReportService(adminId, type, year, month);
+  const report = await getExpenseReportService(labId, type, year, month);
 
   res.json(new ApiResponse(200, report, "Expense report fetched successfully"));
 });
@@ -99,7 +111,13 @@ export const getExpenseReportController = asyncHandler(async (req, res) => {
 // 7. Download Expense Report (PDF)
 export const downloadExpenseReportController = asyncHandler(
   async (req, res) => {
-    const adminId = req.user.userId;
+    const labId = req.user.labId;
+    if (!labId) {
+      throw new ApiError(
+        400,
+        "Lab ID is missing from your session. Please re-login."
+      );
+    }
     const { type, year, month } = req.query;
 
     if (!type || !year) {
@@ -109,7 +127,7 @@ export const downloadExpenseReportController = asyncHandler(
     // Reuse service logic to get data
     // reportData contains { breakdown, grandTotal }
     const reportData = await getExpenseReportService(
-      adminId,
+      labId,
       type,
       year,
       month
@@ -138,7 +156,13 @@ export const downloadExpenseReportController = asyncHandler(
 
 // 8. Get Expense Stats
 export const getExpenseStatsController = asyncHandler(async (req, res) => {
-  const adminId = req.user.userId;
-  const stats = await getExpenseStatsService(adminId);
+  const labId = req.user.labId;
+  if (!labId) {
+    throw new ApiError(
+      400,
+      "Lab ID is missing from your session. Please re-login."
+    );
+  }
+  const stats = await getExpenseStatsService(labId);
   res.json(new ApiResponse(200, stats, "Expense stats fetched successfully"));
 });

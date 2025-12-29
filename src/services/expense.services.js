@@ -131,11 +131,15 @@ export const getExpenseReportService = async (labId, type, year, month) => {
   let startDate, endDate;
 
   if (type === "monthly") {
-    startDate = new Date(targetYear, targetMonth, 1);
-    endDate = new Date(targetYear, targetMonth + 1, 0, 23, 59, 59, 999);
+    startDate = new Date(targetYear, targetMonth, 1, 0, 0, 0, 0);
+    // Go to first day of next month, then subtract 1ms
+    endDate = new Date(targetYear, targetMonth + 1, 1, 0, 0, 0, 0);
+    endDate.setMilliseconds(-1);
   } else if (type === "yearly") {
-    startDate = new Date(targetYear, 0, 1);
-    endDate = new Date(targetYear, 11, 31, 23, 59, 59, 999);
+    startDate = new Date(targetYear, 0, 1, 0, 0, 0, 0);
+    // Go to first day of next year, then subtract 1ms
+    endDate = new Date(targetYear + 1, 0, 1, 0, 0, 0, 0);
+    endDate.setMilliseconds(-1);
   } else {
     throw new ApiError(400, "Invalid report type");
   }
