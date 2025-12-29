@@ -7,6 +7,7 @@ const getDoctorModel = async () =>
   (await import("../models/doctor.model.js")).default;
 import { ApiError } from "../utils/ApiError.js";
 import TestOrder from "../models/testorder.model.js";
+import mongoose from "mongoose";
 
 // 1. Create Test Order
 export const createTestOrder = async ({
@@ -144,8 +145,8 @@ export const submitTestResults = async (
   order.overallStatus = allCompleted
     ? "COMPLETED"
     : anyCompleted
-    ? "PARTIAL"
-    : "PENDING";
+      ? "PARTIAL"
+      : "PENDING";
 
   await order.save();
   return order;
@@ -240,8 +241,8 @@ export const submitBulkResultsByBill = async (
     order.overallStatus = allCompleted
       ? "COMPLETED"
       : anyCompleted
-      ? "PARTIAL"
-      : "PENDING";
+        ? "PARTIAL"
+        : "PENDING";
     await order.save();
   }
 

@@ -10,8 +10,7 @@ import PathologyLab from "../models/pathologyLab.model.js";
 import fs from "fs";
 import path from "path";
 
-import path from "path";
-import fs from "fs";
+
 
 /**
  * 1. Create Test Order (assign multiple tests)
@@ -234,7 +233,7 @@ export const downloadTestReportPDFController = asyncHandler(
     const doc = new PDFDocument({ margin: 30, size: "A4" });
 
     const filename = `Report-${order.patientId.fullName.replace(
-      /\s+/g,
+      /[^a-zA-Z0-9]/g,
       "_"
     )}-${Date.now()}.pdf`;
 
