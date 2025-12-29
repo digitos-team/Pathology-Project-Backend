@@ -7,6 +7,8 @@ import Patient from "../models/patient.model.js";
 import PDFDocument from "pdfkit";
 import { generateTestReportPDF } from "../utils/pdfGenerator.js";
 import PathologyLab from "../models/pathologyLab.model.js";
+import fs from "fs";
+import path from "path";
 
 /**
  * 1. Create Test Order (assign multiple tests)
@@ -227,24 +229,59 @@ export const downloadTestReportPDFController = asyncHandler(
     }
 
     const doc = new PDFDocument({ margin: 30, size: "A4" });
+
     const filename = `Report-${order.patientId.fullName.replace(
       /\s+/g,
       "_"
     )}-${Date.now()}.pdf`;
 
-    res.setHeader("Content-Type", "application/pdf");
-    res.setHeader("Content-Disposition", `attachment; filename=${filename}`);
+    // Local directory
+    const reportsDir = path.join(process.cwd(), "uploads", "reports");
+    if (!fs.existsSync(reportsDir)) {
+      fs.mkdirSync(reportsDir, { recursive: true });
+    }
 
+    const filePath = path.join(reportsDir, filename);
+
+    // Store RELATIVE path in DB
+    const reportPdfPath = `/uploads/reports/${filename}`;
+
+    const fileStream = fs.createWriteStream(filePath);
+
+    // Pipe to local file
+    doc.pipe(fileStream);
+
+    // Pipe to response
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
     doc.pipe(res);
+
     generateTestReportPDF(doc, order, lab);
     doc.end();
+
+    // Update patient AFTER file saved
+    fileStream.on("finish", async () => {
+      await Patient.findByIdAndUpdate(order.patientId._id, {
+        reportPdfPath: reportPdfPath,
+        reportStatus: "generated",
+      });
+
+      console.log("Report generated & saved:", reportPdfPath);
+    });
+
+    // Error handling (important)
+    fileStream.on("error", async () => {
+      await Patient.findByIdAndUpdate(order.patientId._id, {
+        reportStatus: "failed",
+      });
+    });
   }
 );
 
 // Sends Report to patient Via Email
 
 export const generateAndSendReportViaEmail = asyncHandler(async (req, res) => {
-  let patient; // ✅ declare outside
+  let patient; // declare outside
 
   try {
     const { patientId } = req.params;
@@ -282,7 +319,7 @@ export const generateAndSendReportViaEmail = asyncHandler(async (req, res) => {
   } catch (error) {
     console.error(error);
 
-    // ✅ update only if patient exists
+    // update only if patient exists
     if (patient) {
       patient.reportStatus = "failed";
       patient.emailSentAt = new Date();

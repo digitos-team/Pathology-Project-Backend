@@ -5,6 +5,7 @@ import PathologyLab from "../models/pathologyLab.model.js";
 
 // Helper to get Lab ID
 const getLabIdByOwner = async (userId) => {
+  console.log("[SERVICE] getLabIdByOwner called", { userId });
   const lab = await PathologyLab.findOne({ owner: userId });
   if (!lab) {
     throw new Error("No Lab found for this Admin. Please create a Lab first.");
@@ -39,7 +40,7 @@ export const createPatient = async (data, userId) => {
 };
 
 //added Pagination for patients
-export const getPatientsByLab = async (userId, options = {}) => {
+export const getPatientsByLab = async (labId, options = {}) => {
   // Get pagination parameters with defaults
   const page = Math.max(1, parseInt(options.page) || 1);
   const limit = Math.min(100, Math.max(1, parseInt(options.limit) || 10));
@@ -54,7 +55,6 @@ export const getPatientsByLab = async (userId, options = {}) => {
   const ageMax = options.ageMax || "";
 
   // Get labId
-  const labId = await getLabIdByOwner(userId);
 
   // Build query filter
   const filter = { labId, isActive: true };
@@ -114,8 +114,7 @@ export const getPatientsByLab = async (userId, options = {}) => {
   };
 };
 
-export const getPatientById = async (patientId, userId) => {
-  const labId = await getLabIdByOwner(userId);
+export const getPatientById = async (patientId, labId) => {
   return await Patient.findOne({ _id: patientId, labId }).populate(
     "testHistory"
   );

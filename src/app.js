@@ -13,12 +13,13 @@ import commissionRoutes from "./routes/commission.routes.js";
 import discountRoutes from "./routes/discount.routes.js";
 import { errorHandler } from "./middleware/errorHandler.middleware.js";
 import cookieParser from "cookie-parser";
+import path from "path";
 export const app = express();
 
 // Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(express.static("public")); // Serve files from public directory
+app.use("/uploads", express.static(path.join(process.cwd(), "uploads"))); // Serve files from public directory
 app.use(cookieParser());
 // Routes
 app.use("/api/user", userRoutes);
