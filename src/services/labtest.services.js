@@ -44,11 +44,10 @@ class TestService {
   }
 
   async deleteTest(testId, labId) {
-    const deletedTest = await Test.findOneAndUpdate(
-      { _id: testId, labId, isActive: true },
-      { isActive: false },
-      { new: true }
-    );
+    const deletedTest = await Test.findOneAndDelete({
+      _id: testId,
+      labId,
+    });
 
     if (!deletedTest) {
       throw new ApiError(404, "Test not found");

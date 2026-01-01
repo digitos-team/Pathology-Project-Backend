@@ -38,10 +38,7 @@ export const getPatients = asyncHandler(async (req, res) => {
       "Lab ID is missing from your session. Please re-login."
     );
   }
-  const patients = await patientService.getPatientsByLab(labId);
-  res
-    .status(200)
-    .json(new ApiResponse(200, patients, "Patients fetched successfully"));
+
   // Extract pagination and filter parameters from query string
   const options = {
     page: req.query.page,
@@ -54,10 +51,7 @@ export const getPatients = asyncHandler(async (req, res) => {
     ageMax: req.query.ageMax,
   };
 
-  const result = await patientService.getPatientsByLab(
-    req.user.userId,
-    options
-  );
+  const result = await patientService.getPatientsByLab(labId, options);
 
   res.status(200).json(
     new ApiResponse(
@@ -109,6 +103,22 @@ export const updatePatient = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, patient, "Patient updated successfully"));
 });
 
+// Delete Patient
+export const deletePatient = asyncHandler(async (req, res) => {
+  const labId = req.user.labId;
+  if (!labId) {
+    throw new ApiError(
+      400,
+      "Lab ID is missing from your session. Please re-login."
+    );
+  }
+  const patient = await patientService.deletePatient(req.params.id, labId);
+  if (!patient) throw new ApiError(404, "Patient not found");
+  res
+    .status(200)
+    .json(new ApiResponse(200, null, "Patient deleted successfully"));
+});
+
 // Search Patient
 export const searchPatient = asyncHandler(async (req, res) => {
   const labId = req.user.labId;
@@ -120,6 +130,23 @@ export const searchPatient = asyncHandler(async (req, res) => {
   }
   const patients = await patientService.searchPatient(labId, req.query);
   res.status(200).json(new ApiResponse(200, patients, "Patients found"));
+});
+
+// Get Today's Patients
+export const getTodayPatients = asyncHandler(async (req, res) => {
+  const labId = req.user.labId;
+  if (!labId) {
+    throw new ApiError(
+      400,
+      "Lab ID is missing from your session. Please re-login."
+    );
+  }
+  const patients = await patientService.getTodayPatients(labId);
+  res
+    .status(200)
+    .json(
+      new ApiResponse(200, patients, "Today's patients fetched successfully")
+    );
 });
 
 //get daily patient

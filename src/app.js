@@ -1,4 +1,5 @@
 import express from "express";
+import cors from "cors";
 import userRoutes from "./routes/user.routes.js";
 // import adminRoutes from "./routes/admin.routes.js";
 import doctorRoutes from "./routes/doctor.routes.js";
@@ -15,6 +16,15 @@ import { errorHandler } from "./middleware/errorHandler.middleware.js";
 import cookieParser from "cookie-parser";
 import path from "path";
 export const app = express();
+
+// CORS configuration
+app.use(
+  cors({
+    origin: ["http://localhost:5173"],
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    credentials: true,
+  })
+);
 
 // Middleware
 app.use(express.json());
