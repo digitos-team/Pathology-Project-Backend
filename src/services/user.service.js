@@ -41,11 +41,16 @@ export const updateUserService = async (userId, { name, email, password }) => {
   return user;
 };
 
+export const getLabDetailsService = async (adminId) => {
+  const lab = await PathologyLab.findOne({ owner: adminId });
+  return lab;
+};
+
 export const createOrupdateLabDetailsService = async (adminId, updateData) => {
   const updateOps = { ...updateData, owner: adminId };
 
   const lab = await PathologyLab.findOneAndUpdate(
-    {},
+    { owner: adminId },
     updateOps,
     { new: true, upsert: true, setDefaultsOnInsert: true }
   );

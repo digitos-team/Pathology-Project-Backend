@@ -5,31 +5,115 @@ export const generateExpenseReportPDF = (
   year,
   month
 ) => {
-  // Existing expense report logic...
-  doc.fontSize(20).text("Expense Report", { align: "center" });
-  doc.moveDown();
-  doc.fontSize(12).text(`Report Type: ${type.toUpperCase()}`);
-  doc.text(`Year: ${year}`);
-  if (month) doc.text(`Month: ${month}`);
-  doc.moveDown();
+  const accentColor = "#2c3e50";
+  const borderColor = "#eeeeee";
+  const headerColor = "#f8f9fa";
+
+  // 1. Header Section
+  doc
+    .fillColor(accentColor)
+    .fontSize(20)
+    .font("Helvetica-Bold")
+    .text("EXPENSE REPORT", { align: "center" });
+
+  doc.moveDown(0.5);
+  doc
+    .fontSize(10)
+    .font("Helvetica")
+    .fillColor("#7f8c8d")
+    .text(
+      `Type: ${type.toUpperCase()} | Year: ${year}${month ? ` | Month: ${month}` : ""
+      }`,
+      { align: "center" }
+    );
+
+  doc.moveDown(1.5);
+  doc.strokeColor(borderColor).lineWidth(0.5).moveTo(30, doc.y).lineTo(570, doc.y).stroke();
+  doc.moveDown(1);
 
   let grandTotal = 0;
+
+  // 2. Iterate through Time Units (Days or Months)
   reportData.forEach((group) => {
-    const timeUnit = group._id;
-    doc.fontSize(12).font("Helvetica-Bold").text(`Period: ${timeUnit}`);
-    group.categories.forEach((cat) => {
-      doc
-        .font("Helvetica")
-        .text(`  - ${cat.category}: ${cat.totalAmount} (Count: ${cat.count})`);
-      grandTotal += cat.totalAmount;
-    });
+    const timeLabel = type === "monthly" ? `Day ${group._id}` : `Month ${group._id}`;
+
+    doc.fillColor(accentColor).fontSize(12).font("Helvetica-Bold").text(timeLabel, 35);
     doc.moveDown(0.5);
+
+    // Table Header for this group
+    const tableTop = doc.y;
+    doc.rect(35, tableTop, 530, 20).fill(headerColor).stroke(borderColor);
+    doc.fillColor(accentColor).font("Helvetica-Bold").fontSize(9);
+
+    doc.text("Title / Particulars", 40, tableTop + 6);
+    doc.text("Category", 230, tableTop + 6);
+    doc.text("Dr / Supplier", 350, tableTop + 6);
+    doc.text("Amount (INR)", 480, tableTop + 6, { width: 80, align: "right" });
+
+    let currentY = tableTop + 20;
+
+    // Iterate through Categories in this group
+    group.categories.forEach((cat) => {
+      // Iterate through individual items
+      cat.items.forEach((item) => {
+        // Page break check
+        if (currentY > 730) {
+          doc.addPage();
+          currentY = 50;
+          // Redraw header if page breaks inside a group
+          doc.rect(35, currentY, 530, 20).fill(headerColor).stroke(borderColor);
+          doc.fillColor(accentColor).font("Helvetica-Bold").fontSize(9);
+          doc.text("Title / Particulars", 40, currentY + 6);
+          doc.text("Category", 230, currentY + 6);
+          doc.text("Dr / Supplier", 350, currentY + 6);
+          doc.text("Amount (INR)", 480, currentY + 6, { width: 80, align: "right" });
+          currentY += 20;
+        }
+
+        doc.fillColor("#2d3436").font("Helvetica").fontSize(8);
+
+        // Particulars
+        doc.text(item.title, 40, currentY + 6, { width: 180 });
+
+        // Category
+        doc.text(cat.category.replace("_", " "), 230, currentY + 6);
+
+        // Dr / Supplier
+        const ref = item.doctorName || item.supplier || "N/A";
+        doc.text(ref, 350, currentY + 6, { width: 120 });
+
+        // Amount
+        doc.font("Helvetica-Bold").text(item.amount.toFixed(2), 480, currentY + 6, { width: 80, align: "right" });
+
+        currentY += 22;
+        doc.strokeColor("#f1f2f6").lineWidth(0.2).moveTo(35, currentY).lineTo(565, currentY).stroke();
+      });
+    });
+
+    // Subtotal for this period
+    doc.moveDown(0.5);
+    doc.fillColor(accentColor).font("Helvetica-Bold").fontSize(9);
+    doc.text(`Total for ${timeLabel}: INR ${group.totalForPeriod.toFixed(2)}`, { align: "right", right: 25 });
+    doc.moveDown(1.5);
+
+    grandTotal += group.totalForPeriod;
+    currentY = doc.y;
   });
-  doc.moveDown();
-  doc
-    .fontSize(14)
-    .font("Helvetica-Bold")
-    .text(`Grand Total: ${grandTotal}`, { align: "right" });
+
+  // 3. Grand Total at the end
+  doc.moveDown(2);
+  const finalY = doc.y;
+  doc.rect(350, finalY, 215, 30).fill(accentColor).stroke();
+  doc.fillColor("white").fontSize(12).font("Helvetica-Bold");
+  doc.text("GRAND TOTAL", 360, finalY + 10);
+  doc.text(`INR ${grandTotal.toFixed(2)}`, 480, finalY + 10, { width: 80, align: "right" });
+
+  // 4. Footer
+  doc.moveDown(4);
+  doc.fillColor("gray").fontSize(8).font("Helvetica-Oblique").text(
+    "This is a system-generated expense report and does not require a physical signature.",
+    { align: "center", width: 530 }
+  );
 };
 
 export const generateBillPDF = (doc, bill, lab) => {

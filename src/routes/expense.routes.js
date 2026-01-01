@@ -1,6 +1,7 @@
 import express from "express";
 import {
     addExpenseController,
+    addBatchExpensesController,
     updateExpenseController,
     listExpensesController,
     deleteExpenseController,
@@ -18,6 +19,7 @@ const router = express.Router();
 router.use(authMiddleware, adminMiddleware);
 
 router.post("/add", upload.single("receipt"), addExpenseController);
+router.post("/batch", upload.single("receipt"), addBatchExpensesController);
 router.put("/update/:expenseId", upload.single("receipt"), updateExpenseController);
 router.get("/all", listExpensesController);
 router.delete("/delete/:expenseId", deleteExpenseController);

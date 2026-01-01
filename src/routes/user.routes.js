@@ -2,6 +2,7 @@ import express from "express";
 import {
     registerUserController,
     updateUserController,
+    getLabDetailsController,
     createOrupdateLabDetailsController,
     loginController,
     deleteReceptionistController
@@ -12,22 +13,16 @@ import { authMiddleware, adminMiddleware, optionalAuthMiddleware } from "../midd
 const router = express.Router();
 
 
-// Public routes
 router.post("/login", loginController);
 
 // Unified Register Endpoint (Handles Public Admin & Protected Receptionist creation)
 router.post("/register", optionalAuthMiddleware, registerUserController);
 
-// Protected routes (Aliases for clarity, but /register handles them now)
-// router.post("/create-receptionist", authMiddleware, adminMiddleware, registerUserController);
-
 
 
 // Protected routes (Admin only)
-router.put("/lab-details",
-    authMiddleware,
-    adminMiddleware,
-    createOrupdateLabDetailsController);
+router.get("/lab-details", authMiddleware, adminMiddleware, getLabDetailsController);
+router.put("/lab-details", authMiddleware, adminMiddleware, createOrupdateLabDetailsController);
 
 // Unified User Registration (Admin creates other admins or receptionists)
 // router.post("/register-user", authMiddleware, adminMiddleware, registerUserController);

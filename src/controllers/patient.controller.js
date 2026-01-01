@@ -38,10 +38,7 @@ export const getPatients = asyncHandler(async (req, res) => {
       "Lab ID is missing from your session. Please re-login."
     );
   }
-  const patients = await patientService.getPatientsByLab(labId);
-  res
-    .status(200)
-    .json(new ApiResponse(200, patients, "Patients fetched successfully"));
+
   // Extract pagination and filter parameters from query string
   const options = {
     page: req.query.page,

@@ -10,8 +10,6 @@ import PathologyLab from "../models/pathologyLab.model.js";
 import fs from "fs";
 import path from "path";
 
-
-
 /**
  * 1. Create Test Order (assign multiple tests)
  */

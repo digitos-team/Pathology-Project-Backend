@@ -74,6 +74,12 @@ export const updateUserController = asyncHandler(async (req, res) => {
   res.json(new ApiResponse(200, updated, "User profile updated"));
 });
 
+export const getLabDetailsController = asyncHandler(async (req, res) => {
+  const adminId = req.user.userId;
+  const lab = await userService.getLabDetailsService(adminId);
+  res.json(new ApiResponse(200, lab, "Lab details fetched successfully"));
+});
+
 export const createOrupdateLabDetailsController = asyncHandler(async (req, res) => {
   const adminId = req.user.userId;
   const updatedLab = await userService.createOrupdateLabDetailsService(adminId, req.body);

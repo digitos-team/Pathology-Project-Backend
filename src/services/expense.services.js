@@ -1,5 +1,6 @@
 import Expense from "../models/expense.model.js";
 import PathologyLab from "../models/pathologyLab.model.js";
+import Doctor from "../models/doctor.model.js";
 import { ApiError } from "../utils/ApiError.js";
 import mongoose from "mongoose";
 
@@ -21,6 +22,30 @@ export const createExpenseService = async (data, labId) => {
   });
 
   return expense;
+};
+
+// 1.5 Batch Create Expenses (Optimized for Bulk Insert)
+export const createBatchExpensesService = async (expenses, labId) => {
+  if (!expenses || expenses.length === 0) {
+    return [];
+  }
+
+  // Pre-process items to calculate amounts and attach labId
+  const expensesToInsert = expenses.map(item => {
+    let finalAmount = item.amount;
+    if (item.quantity && item.quantity > 0) {
+      finalAmount = item.amount * item.quantity;
+    }
+    return {
+      ...item,
+      amount: finalAmount,
+      lab: labId
+    };
+  });
+
+  // insertMany is significantly faster than looped create
+  const createdExpenses = await Expense.insertMany(expensesToInsert);
+  return createdExpenses;
 };
 
 // 2. Update Expense
@@ -52,7 +77,14 @@ export const listExpensesService = async (adminId, query) => {
   const filter = { lab: lab._id };
 
   // Date Range Filter
-  if (query.startDate && query.endDate) {
+  if (query.month) {
+    // query.month format: "YYYY-MM"
+    const [year, month] = query.month.split("-");
+    const startDate = new Date(parseInt(year), parseInt(month) - 1, 1);
+    const endDate = new Date(parseInt(year), parseInt(month), 0, 23, 59, 59, 999);
+
+    filter.date = { $gte: startDate, $lte: endDate };
+  } else if (query.startDate && query.endDate) {
     const startOfDay = new Date(query.startDate);
     startOfDay.setHours(0, 0, 0, 0);
 
@@ -75,10 +107,20 @@ export const listExpensesService = async (adminId, query) => {
     filter.category = query.category;
   }
 
+  // Search Pattern (Title, Category, Supplier)
+  if (query.search) {
+    filter.$or = [
+      { title: { $regex: query.search, $options: "i" } },
+      { category: { $regex: query.search, $options: "i" } },
+      { supplier: { $regex: query.search, $options: "i" } }
+    ];
+  }
+
   // Doctor Filter
   if (query.doctor) {
     filter.doctor = query.doctor;
   }
+
 
   // 🔹 Pagination Logic
   const page = parseInt(query.page, 10) || 1;
@@ -93,7 +135,8 @@ export const listExpensesService = async (adminId, query) => {
     .sort({ date: -1 })
     .skip(skip)
     .limit(limit)
-    .populate("lab", "name");
+    .populate("lab", "labName")
+    .populate("doctor", "name");
 
   return {
     data: expenses,
@@ -149,6 +192,19 @@ export const getExpenseReportService = async (labId, type, year, month) => {
   const pipeline = [
     { $match: matchStage },
     {
+      $lookup: {
+        from: "doctors",
+        localField: "doctor",
+        foreignField: "_id",
+        as: "doctorDetails",
+      },
+    },
+    {
+      $addFields: {
+        doctorName: { $arrayElemAt: ["$doctorDetails.name", 0] },
+      },
+    },
+    {
       $group: {
         _id: {
           category: "$category",
@@ -169,6 +225,9 @@ export const getExpenseReportService = async (labId, type, year, month) => {
             date: "$date",
             quantity: "$quantity",
             unit: "$unit",
+            supplier: "$supplier",
+            doctorName: "$doctorName",
+            category: "$category"
           },
         }, // Collect detailed items
       },
@@ -207,7 +266,9 @@ export const getExpenseReportService = async (labId, type, year, month) => {
 
 // 5. Get Expense by ID
 export const getExpenseByIdService = async (expenseId) => {
-  const expense = await Expense.findById(expenseId);
+  const expense = await Expense.findById(expenseId)
+    .populate("lab", "labName")
+    .populate("doctor", "name");
   if (!expense) {
     throw new ApiError(404, "Expense not found");
   }
