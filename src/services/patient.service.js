@@ -13,25 +13,33 @@ const getLabIdByOwner = async (userId) => {
   return lab._id;
 };
 
-export const createPatient = async (data, userId) => {
+export const createPatient = async (data, userId, labIdFromController) => {
   console.log("[SERVICE] createPatient called", { data, userId });
 
-  const labId = await getLabIdByOwner(userId);
+  const labId = labIdFromController || (await getLabIdByOwner(userId));
+  const fullName = data.name || data.fullName;
 
   const existingPatient = await Patient.findOne({
-    name: data.name,
+    labId,
+    fullName,
     age: data.age,
     phone: data.phone,
   });
 
   if (existingPatient) {
     throw new Error(
-      "Patient already exists with same name, age, and phone number"
+      "Patient already exists with same name, age, and phone number in this lab"
     );
   }
 
+  // Handle address if it's a string from frontend
+  const addressPayload =
+    typeof data.address === "string" ? { street: data.address } : data.address;
+
   const patient = await Patient.create({
     ...data,
+    fullName,
+    address: addressPayload,
     createdBy: userId,
     labId,
   });
@@ -126,6 +134,10 @@ export const updatePatient = async (patientId, labId, updateData) => {
   });
 };
 
+export const deletePatient = async (patientId, labId) => {
+  return await Patient.findOneAndDelete({ _id: patientId, labId });
+};
+
 export const searchPatient = async (labId, query) => {
   const filter = { labId, isActive: true };
 
@@ -134,6 +146,20 @@ export const searchPatient = async (labId, query) => {
     filter.fullName = { $regex: query.fullName, $options: "i" };
 
   return await Patient.find(filter);
+};
+
+export const getTodayPatients = async (labId) => {
+  const startOfDay = new Date();
+  startOfDay.setHours(0, 0, 0, 0);
+
+  const endOfDay = new Date();
+  endOfDay.setHours(23, 59, 59, 999);
+
+  return await Patient.find({
+    labId,
+    createdAt: { $gte: startOfDay, $lte: endOfDay },
+    isActive: true,
+  }).sort({ createdAt: -1 });
 };
 
 //get daily patient

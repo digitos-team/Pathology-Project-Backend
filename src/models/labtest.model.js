@@ -51,7 +51,7 @@ const labTestSchema = new mongoose.Schema(
   {
     labId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Lab",
+      ref: "PathologyLab",
       required: true,
     },
 
