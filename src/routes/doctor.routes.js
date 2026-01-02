@@ -1,12 +1,16 @@
 import express from "express";
 import {
-    addDoctorController,
-    updateDoctorController,
-    getAllDoctorsController,
-    getDoctorCommissionReportController,
-    deleteDoctorController
+  addDoctorController,
+  updateDoctorController,
+  getAllDoctorsController,
+  getDoctorCommissionReportController,
+  getDoctorByIdController,
+  deleteDoctorController,
 } from "../controllers/doctor.controller.js";
-import { authMiddleware, adminMiddleware } from "../middleware/user.middleware.js";
+import {
+  authMiddleware,
+  adminMiddleware,
+} from "../middleware/user.middleware.js";
 
 const router = express.Router();
 
@@ -16,6 +20,7 @@ router.use(authMiddleware, adminMiddleware);
 router.post("/add", addDoctorController);
 router.put("/update/:doctorId", updateDoctorController);
 router.get("/all", getAllDoctorsController);
+router.get("/:doctorId", getDoctorByIdController);
 router.get("/reports/:doctorId", getDoctorCommissionReportController);
 router.delete("/:doctorId", deleteDoctorController);
 
