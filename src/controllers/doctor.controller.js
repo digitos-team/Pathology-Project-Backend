@@ -5,6 +5,7 @@ import {
   updateDoctorService,
   getAllDoctorsService,
   getDoctorCommissionReportService,
+  getDoctorByIdService,
   deleteDoctorService,
 } from "../services/doctor.services.js";
 import Doctor from "../models/doctor.model.js";
@@ -39,15 +40,31 @@ export const updateDoctorController = asyncHandler(async (req, res) => {
 // 3. List All Doctors
 export const getAllDoctorsController = asyncHandler(async (req, res) => {
   const labId = req.user.labId;
+  const { page, limit } = req.query;
 
-  const doctors = await getAllDoctorsService(labId);
+  const result = await getAllDoctorsService(labId, { page, limit });
 
-  // Check if empty? Service returns empty array.
-  if (!doctors || doctors.length === 0) {
-    return res.json(new ApiResponse(200, [], "No doctors found for this lab"));
+  // Check if empty?
+  if (!result.doctors || result.doctors.length === 0) {
+    return res.json(
+      new ApiResponse(
+        200,
+        { doctors: [], pagination: result.pagination },
+        "No doctors found for this lab"
+      )
+    );
   }
 
-  res.json(new ApiResponse(200, doctors, "Doctors fetched successfully"));
+  res.json(
+    new ApiResponse(
+      200,
+      {
+        doctors: result.doctors,
+        pagination: result.pagination,
+      },
+      "Doctors fetched successfully"
+    )
+  );
 });
 
 // 4. Commission Reports (Daily, Monthly, Yearly)
@@ -75,4 +92,13 @@ export const deleteDoctorController = asyncHandler(async (req, res) => {
   await deleteDoctorService(doctorId);
 
   res.json(new ApiResponse(200, {}, "Doctor deleted successfully"));
+});
+// 6. Get Doctor By ID
+export const getDoctorByIdController = asyncHandler(async (req, res) => {
+  const { doctorId } = req.params;
+  const labId = req.user.labId;
+
+  const doctor = await getDoctorByIdService(doctorId, labId);
+
+  res.json(new ApiResponse(200, doctor, "Doctor details fetched successfully"));
 });

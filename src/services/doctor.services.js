@@ -25,9 +25,27 @@ export const updateDoctorService = async (doctorId, updates) => {
   return doctor;
 };
 
-export const getAllDoctorsService = async (labId) => {
-  const doctors = await Doctor.find({ lab: labId });
-  return doctors;
+export const getAllDoctorsService = async (labId, options = {}) => {
+  const page = Math.max(1, parseInt(options.page) || 1);
+  const limit = Math.min(100, Math.max(1, parseInt(options.limit) || 10));
+  const skip = (page - 1) * limit;
+
+  const [doctors, totalCount] = await Promise.all([
+    Doctor.find({ lab: labId }).skip(skip).limit(limit).lean(),
+    Doctor.countDocuments({ lab: labId }),
+  ]);
+
+  const totalPages = Math.ceil(totalCount / limit);
+
+  return {
+    doctors,
+    pagination: {
+      currentPage: page,
+      totalPages,
+      totalRecords: totalCount,
+      recordsPerPage: limit,
+    },
+  };
 };
 
 export const getDoctorCommissionReportService = async (doctorId, type) => {
@@ -69,6 +87,13 @@ export const getDoctorCommissionReportService = async (doctorId, type) => {
 
 export const deleteDoctorService = async (doctorId) => {
   const doctor = await Doctor.findByIdAndDelete(doctorId);
+  if (!doctor) {
+    throw new ApiError(404, "Doctor not found");
+  }
+  return doctor;
+};
+export const getDoctorByIdService = async (doctorId, labId) => {
+  const doctor = await Doctor.findOne({ _id: doctorId, lab: labId }).lean();
   if (!doctor) {
     throw new ApiError(404, "Doctor not found");
   }
