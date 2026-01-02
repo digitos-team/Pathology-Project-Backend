@@ -8,6 +8,7 @@ import {
   searchPatient,
   getTodayPatients,
   getDailyPatient,
+  getTotalPatientCountController,
 } from "../controllers/patient.controller.js";
 
 import {
@@ -41,6 +42,9 @@ router.delete("/deletepatient/:id", deletePatient);
 
 // Today's patients
 router.get("/today", getTodayPatients);
+
+// Total patient count
+router.get("/count", getTotalPatientCountController);
 
 router.get("/daily", getDailyPatient);
 export default router;

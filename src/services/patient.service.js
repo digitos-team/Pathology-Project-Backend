@@ -149,45 +149,52 @@ export const searchPatient = async (labId, query) => {
 };
 
 export const getTodayPatients = async (labId) => {
+  const labObjectId = new mongoose.Types.ObjectId(labId);
+
   const startOfDay = new Date();
   startOfDay.setHours(0, 0, 0, 0);
 
-  const endOfDay = new Date();
-  endOfDay.setHours(23, 59, 59, 999);
+  const startOfNextDay = new Date(startOfDay);
+  startOfNextDay.setDate(startOfNextDay.getDate() + 1);
 
-  return await Patient.find({
-    labId,
-    createdAt: { $gte: startOfDay, $lte: endOfDay },
+  return Patient.find({
+    labId: labObjectId,
     isActive: true,
+    createdAt: { $gte: startOfDay, $lt: startOfNextDay },
   }).sort({ createdAt: -1 });
 };
 
+// get total patient count
+export const getTotalPatientCount = async (labId) => {
+  const labObjectId = new mongoose.Types.ObjectId(labId);
+  return await Patient.countDocuments({
+    labId: labObjectId,
+    isActive: true,
+  });
+};
+
+
 //get daily patient
 export const dailypatient = async (labId, year, month) => {
-  const startDate = new Date(year, month - 1, 1);
-  const endDate = new Date(year, month, 0, 23, 59, 59);
-
-  // ✅ Force ObjectId (this is the key fix)
   const labObjectId = new mongoose.Types.ObjectId(labId);
+
+  const startDate = new Date(year, month - 1, 1);
+  const nextMonthStart = new Date(year, month, 1);
 
   const dailyData = await Patient.aggregate([
     {
       $match: {
         labId: labObjectId,
-        createdAt: { $gte: startDate, $lte: endDate },
+        createdAt: { $gte: startDate, $lt: nextMonthStart },
       },
     },
     {
       $group: {
-        _id: {
-          day: { $dayOfMonth: "$createdAt" },
-        },
+        _id: { day: { $dayOfMonth: "$createdAt" } },
         totalPatients: { $sum: 1 },
       },
     },
-    {
-      $sort: { "_id.day": 1 },
-    },
+    { $sort: { "_id.day": 1 } },
   ]);
 
   return dailyData;

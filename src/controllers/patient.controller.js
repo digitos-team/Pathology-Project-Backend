@@ -171,3 +171,15 @@ export const getDailyPatient = asyncHandler(async (req, res) => {
     .status(200)
     .json(new ApiResponse(200, data, "Daily patient fetched successfully"));
 });
+
+// Get Total Patients Count
+export const getTotalPatientCountController = asyncHandler(async (req, res) => {
+  const labId = req.user.labId;
+  if (!labId) {
+    throw new ApiError(400, "Lab ID is missing from your session");
+  }
+  const count = await patientService.getTotalPatientCount(labId);
+  res
+    .status(200)
+    .json(new ApiResponse(200, { totalPatients: count }, "Total patient count fetched successfully"));
+});
