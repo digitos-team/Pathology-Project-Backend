@@ -18,7 +18,7 @@ export const recordRevenue = async ({ billId, totalAmount, commissionAmount, lab
 };
 
 // Get revenue stats
-export const getRevenueWithPaginationService = async (labId,query) => {
+export const getRevenueWithPaginationService = async (labId, query) => {
     const labObjectId = mongoose.Types.ObjectId.isValid(labId)
         ? new mongoose.Types.ObjectId(labId)
         : null;
@@ -72,7 +72,13 @@ export const getRevenueWithPaginationService = async (labId,query) => {
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
-        .populate("billId");
+        .populate({
+            path: "billId",
+            populate: [
+                { path: "patientId", select: "fullName phone age gender" },
+                { path: "testOrderId", populate: { path: "doctor", select: "name" } }
+            ]
+        });
 
     return {
         stats,
@@ -86,75 +92,119 @@ export const getRevenueWithPaginationService = async (labId,query) => {
     };
 };
 
-// Get monthly revenue breakdown
-export const getMonthlyRevenue = async (labId, year) => {
-    const startDate = new Date(year, 0, 1);
-    const endDate = new Date(year, 11, 31, 23, 59, 59);
+// Helper to normalize monthly data
+const normalizeMonths = (data) => {
+    const map = {};
+    data.forEach(m => map[m._id] = m);
 
-    const labObjectId = mongoose.Types.ObjectId.isValid(labId) ? new mongoose.Types.ObjectId(labId) : null;
+    return Array.from({ length: 12 }, (_, i) => ({
+        month: i + 1,
+        totalRevenue: map[i + 1]?.totalRevenue || 0,
+        netRevenue: map[i + 1]?.netRevenue || 0,
+        count: map[i + 1]?.count || 0,
+    }));
+};
 
-    const monthlyData = await Revenue.aggregate([
+// Helper to normalize daily data
+const normalizeDays = (year, month, data) => {
+    // If month is not provided, return empty array
+    if (!month) return [];
+
+    const daysInMonth = new Date(year, month, 0).getDate();
+    const map = {};
+    data.forEach(d => map[d._id] = d);
+
+    return Array.from({ length: daysInMonth }, (_, i) => ({
+        day: i + 1,
+        totalRevenue: map[i + 1]?.totalRevenue || 0,
+        netRevenue: map[i + 1]?.netRevenue || 0,
+        count: map[i + 1]?.count || 0,
+    }));
+};
+
+export const getRevenueAnalytics = async ({
+    labId,
+    year,
+    month // optional (1–12)
+}) => {
+    const labObjectId = mongoose.Types.ObjectId.isValid(labId)
+        ? new mongoose.Types.ObjectId(labId)
+        : null;
+
+    if (!labObjectId) throw new Error("Invalid labId");
+
+    const yearStart = new Date(year, 0, 1);
+    const nextYearStart = new Date(year + 1, 0, 1);
+
+    let monthStart, nextMonthStart;
+    if (month) {
+        monthStart = new Date(year, month - 1, 1);
+        nextMonthStart = new Date(year, month, 1);
+    }
+
+    const pipeline = [
         {
             $match: {
                 $or: [
                     { labId: labId },
                     { labId: labObjectId }
                 ].filter(f => f.labId !== null),
-                createdAt: { $gte: startDate, $lte: endDate },
+                createdAt: { $gte: yearStart, $lt: nextYearStart },
             },
         },
         {
-            $group: {
-                _id: { $month: "$createdAt" },
-                totalRevenue: { $sum: "$totalAmount" },
-                totalCommission: { $sum: "$commissionAmount" },
-                netRevenue: { $sum: "$netRevenue" },
-                count: { $sum: 1 },
+            $facet: {
+                yearlyTotal: [
+                    {
+                        $group: {
+                            _id: null,
+                            totalRevenue: { $sum: "$totalAmount" },
+                            totalCommission: { $sum: "$commissionAmount" },
+                            netRevenue: { $sum: "$netRevenue" },
+                            count: { $sum: 1 },
+                        },
+                    },
+                ],
+
+                monthly: [
+                    {
+                        $group: {
+                            _id: { $month: "$createdAt" },
+                            totalRevenue: { $sum: "$totalAmount" },
+                            netRevenue: { $sum: "$netRevenue" },
+                            count: { $sum: 1 },
+                        },
+                    },
+                    { $sort: { _id: 1 } },
+                ],
+
+                daily: month
+                    ? [
+                        {
+                            $match: {
+                                createdAt: { $gte: monthStart, $lt: nextMonthStart },
+                            },
+                        },
+                        {
+                            $group: {
+                                _id: { $dayOfMonth: "$createdAt" },
+                                totalRevenue: { $sum: "$totalAmount" },
+                                netRevenue: { $sum: "$netRevenue" },
+                                count: { $sum: 1 },
+                            },
+                        },
+                        { $sort: { _id: 1 } },
+                    ]
+                    : [],
             },
         },
-        { $sort: { _id: 1 } },
-    ]);
+    ];
 
-    return monthlyData;
-};
+    const [result] = await Revenue.aggregate(pipeline);
 
-//get per Day Revenue
-export const getDailyRevenue = async (labId, year, month) => {
-  // month = 1-12
-  const startDate = new Date(year, month - 1, 1);
-  const endDate = new Date(year, month, 0, 23, 59, 59);
-
-  const labObjectId = mongoose.Types.ObjectId.isValid(labId)
-    ? new mongoose.Types.ObjectId(labId)
-    : null;
-
-  const dailyData = await Revenue.aggregate([
-    {
-      $match: {
-        $or: [
-          { labId: labId },
-          { labId: labObjectId }
-        ].filter(f => f.labId !== null),
-        createdAt: { $gte: startDate, $lte: endDate }
-      }
-    },
-    {
-      $group: {
-        _id: {
-          year: { $year: "$createdAt" },
-          month: { $month: "$createdAt" },
-          day: { $dayOfMonth: "$createdAt" }
-        },
-        totalRevenue: { $sum: "$totalAmount" },
-        totalCommission: { $sum: "$commissionAmount" },
-        netRevenue: { $sum: "$netRevenue" },
-        count: { $sum: 1 }
-      }
-    },
-    {
-      $sort: { "_id.day": 1 }
-    }
-  ]);
-
-  return dailyData;
+    return {
+        yearlyTotal: result?.yearlyTotal[0] || {},
+        monthly: normalizeMonths(result?.monthly || []),
+        daily: month ? normalizeDays(year, month, result?.daily || []) : [],
+    };
 };

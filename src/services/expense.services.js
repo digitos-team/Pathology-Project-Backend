@@ -306,7 +306,11 @@ export const getExpenseStatsService = async (labId) => {
           { $match: { date: { $gte: startOfYear } } },
           { $group: { _id: null, total: { $sum: "$amount" } } },
         ],
+         allTime: [
+          { $group: { _id: null, total: { $sum: "$amount" } } },
+        ],
       },
+
     },
   ];
 
@@ -314,6 +318,7 @@ export const getExpenseStatsService = async (labId) => {
 
   const monthlyTotal = results[0]?.monthly[0]?.total || 0;
   const yearlyTotal = results[0]?.yearly[0]?.total || 0;
+   const allTimeTotal= results[0]?.allTime[0]?.total || 0;
 
-  return { monthlyTotal, yearlyTotal };
+  return { monthlyTotal, yearlyTotal, allTimeTotal   };
 };
