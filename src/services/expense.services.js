@@ -6,6 +6,8 @@ import mongoose from "mongoose";
 
 // 1. Create Expense
 export const createExpenseService = async (data, labId) => {
+  if (data.amount <= 0) throw new ApiError(400, "Invalid amount");
+
   // We already have labId from the controller
 
   let finalAmount = data.amount;
@@ -43,13 +45,31 @@ export const createBatchExpensesService = async (expenses, labId) => {
     };
   });
 
-  // insertMany is significantly faster than looped create
-  const createdExpenses = await Expense.insertMany(expensesToInsert);
-  return createdExpenses;
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    // insertMany is significantly faster than looped create
+    // Pass { session } to ensure this operation is part of the transaction
+    const createdExpenses = await Expense.insertMany(expensesToInsert, { session });
+
+    await session.commitTransaction();
+    return createdExpenses;
+  } catch (error) {
+    await session.abortTransaction();
+    throw error;
+  } finally {
+    session.endSession();
+  }
 };
 
 // 2. Update Expense
 export const updateExpenseService = async (expenseId, updates) => {
+  // Recalculate total amount if both quantity and rate (amount) are provided
+  if (updates.quantity && updates.amount) {
+    updates.amount = updates.amount * updates.quantity;
+  }
+
   const expense = await Expense.findByIdAndUpdate(expenseId, updates, {
     new: true,
   });
@@ -109,11 +129,7 @@ export const listExpensesService = async (adminId, query) => {
 
   // Search Pattern (Title, Category, Supplier)
   if (query.search) {
-    filter.$or = [
-      { title: { $regex: query.search, $options: "i" } },
-      { category: { $regex: query.search, $options: "i" } },
-      { supplier: { $regex: query.search, $options: "i" } }
-    ];
+    filter.$text = { $search: query.search };
   }
 
   // Doctor Filter
@@ -132,7 +148,7 @@ export const listExpensesService = async (adminId, query) => {
 
   // 🔹 Fetch paginated data
   const expenses = await Expense.find(filter)
-    .sort({ date: -1 })
+    .sort({ createdAt: -1 })
     .skip(skip)
     .limit(limit)
     .populate("lab", "labName")
@@ -159,38 +175,63 @@ export const deleteExpenseService = async (expenseId) => {
 };
 
 // 6. Get Expense Report (Monthly/Yearly)
-export const getExpenseReportService = async (labId, type, year, month) => {
-  const labObjectId = mongoose.Types.ObjectId.isValid(labId)
-    ? new mongoose.Types.ObjectId(labId)
-    : null;
+export const getExpenseReportService = async (labId, type, year, month, timezone) => {
+  const labObjectId = new mongoose.Types.ObjectId(labId);
 
   const matchStage = {
-    $or: [{ lab: labId }, { lab: labObjectId }].filter((f) => f.lab !== null),
+    lab: labObjectId,
   };
 
   const targetYear = parseInt(year);
   const targetMonth = parseInt(month) - 1; // JS months are 0-indexed
 
-  let startDate, endDate;
+  // Enforce 'Asia/Kolkata' timezone as per user request (Clients are exclusively from India)
+  // This ensures correct reporting regardless of Server Location (e.g. Malaysia) or Client System Time.
+  const reportTimezone = "Asia/Kolkata";
+
+  // Calculate Loose Range (Server Time +/- 2 days) to fully cover the target period in any timezone
+  // This allows us to use the index for the bulk of filtering, then refine with accurate timezone logic
+  let looseStart, looseEnd;
 
   if (type === "monthly") {
-    startDate = new Date(targetYear, targetMonth, 1, 0, 0, 0, 0);
-    // Go to first day of next month, then subtract 1ms
-    endDate = new Date(targetYear, targetMonth + 1, 1, 0, 0, 0, 0);
-    endDate.setMilliseconds(-1);
+    looseStart = new Date(targetYear, targetMonth, 1);
+    looseStart.setDate(looseStart.getDate() - 2); // Buffer
+
+    looseEnd = new Date(targetYear, targetMonth + 1, 1);
+    looseEnd.setDate(looseEnd.getDate() + 2); // Buffer
   } else if (type === "yearly") {
-    startDate = new Date(targetYear, 0, 1, 0, 0, 0, 0);
-    // Go to first day of next year, then subtract 1ms
-    endDate = new Date(targetYear + 1, 0, 1, 0, 0, 0, 0);
-    endDate.setMilliseconds(-1);
+    looseStart = new Date(targetYear, 0, 1);
+    looseStart.setDate(looseStart.getDate() - 2);
+
+    looseEnd = new Date(targetYear + 1, 0, 1);
+    looseEnd.setDate(looseEnd.getDate() + 2);
   } else {
     throw new ApiError(400, "Invalid report type");
   }
 
-  matchStage.date = { $gte: startDate, $lte: endDate };
+  // 1. Index-Optimized Match (Broad Filter)
+  matchStage.date = { $gte: looseStart, $lte: looseEnd };
+
+  // 2. Strict Timezone Match (Precise Filter)
+  // MongoDB $month is 1-12, our targetMonth is 0-11
+  const strictMatchStage = {
+    $expr: {
+      $and: [
+        { $eq: [{ $year: { date: "$date", timezone: reportTimezone } }, targetYear] }
+      ]
+    }
+  };
+
+  if (type === "monthly") {
+    // Add month check for monthly reports
+    strictMatchStage.$expr.$and.push(
+      { $eq: [{ $month: { date: "$date", timezone: reportTimezone } }, targetMonth + 1] }
+    );
+  }
 
   const pipeline = [
-    { $match: matchStage },
+    { $match: matchStage },       // Fast index scan
+    { $match: strictMatchStage }, // Accurate timezone filtering
     {
       $lookup: {
         from: "doctors",
@@ -209,11 +250,11 @@ export const getExpenseReportService = async (labId, type, year, month) => {
         _id: {
           category: "$category",
           // For monthly: group by Day; For yearly: group by Month
-          // Use Asia/Kolkata timezone for accurate local day/month grouping
+          // Use dynamic timezone for accurate local day/month grouping
           timeUnit:
             type === "monthly"
-              ? { $dayOfMonth: { date: "$date", timezone: "Asia/Kolkata" } }
-              : { $month: { date: "$date", timezone: "Asia/Kolkata" } },
+              ? { $dayOfMonth: { date: "$date", timezone: reportTimezone } }
+              : { $month: { date: "$date", timezone: reportTimezone } },
         },
         totalAmount: { $sum: "$amount" },
         count: { $sum: 1 },
@@ -277,9 +318,7 @@ export const getExpenseByIdService = async (expenseId) => {
 
 // 7. Get Expense Stats (Monthly & Yearly Total)
 export const getExpenseStatsService = async (labId) => {
-  const labObjectId = mongoose.Types.ObjectId.isValid(labId)
-    ? new mongoose.Types.ObjectId(labId)
-    : null;
+  const labObjectId = new mongoose.Types.ObjectId(labId);
 
   const now = new Date();
   // Start of Current Month
@@ -291,9 +330,7 @@ export const getExpenseStatsService = async (labId) => {
   const pipeline = [
     {
       $match: {
-        $or: [{ lab: labId }, { lab: labObjectId }].filter(
-          (f) => f.lab !== null
-        ),
+        lab: labObjectId,
       },
     },
     {
@@ -306,7 +343,7 @@ export const getExpenseStatsService = async (labId) => {
           { $match: { date: { $gte: startOfYear } } },
           { $group: { _id: null, total: { $sum: "$amount" } } },
         ],
-         allTime: [
+        allTime: [
           { $group: { _id: null, total: { $sum: "$amount" } } },
         ],
       },
@@ -318,7 +355,7 @@ export const getExpenseStatsService = async (labId) => {
 
   const monthlyTotal = results[0]?.monthly[0]?.total || 0;
   const yearlyTotal = results[0]?.yearly[0]?.total || 0;
-   const allTimeTotal= results[0]?.allTime[0]?.total || 0;
+  const allTimeTotal = results[0]?.allTime[0]?.total || 0;
 
-  return { monthlyTotal, yearlyTotal, allTimeTotal   };
+  return { monthlyTotal, yearlyTotal, allTimeTotal };
 };

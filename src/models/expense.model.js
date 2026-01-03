@@ -65,4 +65,5 @@ const expenseSchema = new mongoose.Schema(
 );
 expenseSchema.index({ lab: 1, date: -1 });
 expenseSchema.index({ lab: 1, category: 1 });
+expenseSchema.index({ title: "text", category: "text", supplier: "text" });
 export default mongoose.model("Expense", expenseSchema);

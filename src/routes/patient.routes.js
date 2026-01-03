@@ -15,7 +15,8 @@ import {
   authMiddleware,
   adminMiddleware,
 } from "../middleware/user.middleware.js";
-// import { authorizeRoles } from "../middleware/role.middleware.js";
+import { validate } from "../middleware/validate.middleware.js";
+import { createPatient as createPatientSchema, updatePatient as updatePatientSchema } from "../validations/patient.validation.js";
 
 const router = express.Router();
 
@@ -23,7 +24,7 @@ const router = express.Router();
 router.use(authMiddleware);
 
 // Register patient
-router.post("/add", authMiddleware, createPatient);
+router.post("/add", authMiddleware, validate(createPatientSchema), createPatient);
 
 // Get all patients (lab-wise)
 router.get("/getallpatient", getPatients);
@@ -35,7 +36,7 @@ router.get("/search", searchPatient);
 router.get("/getpatientbyid/:id", getPatientById);
 
 // Update patient
-router.put("/updatepatient/:id", updatePatient);
+router.put("/updatepatient/:id", validate(updatePatientSchema), updatePatient);
 
 // Delete patient
 router.delete("/deletepatient/:id", deletePatient);

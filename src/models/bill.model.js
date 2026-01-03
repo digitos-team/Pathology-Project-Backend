@@ -55,11 +55,14 @@ const billSchema = new mongoose.Schema({
     }
 );
 
-// Auto-generate bill number
+import crypto from "crypto";
+
+// Auto-generate bill number (Production Ready: No Race Conditions)
 billSchema.pre("save", async function (next) {
     if (!this.billNumber) {
-        const count = await mongoose.model("Bill").countDocuments();
-        this.billNumber = `BILL-${Date.now()}-${count + 1}`;
+        const datePart = new Date().toISOString().split('T')[0].replace(/-/g, ''); // YYYYMMDD
+        const randomPart = crypto.randomBytes(2).toString('hex').toUpperCase(); // 4 random chars
+        this.billNumber = `BILL-${datePart}-${randomPart}`;
     }
     next();
 });

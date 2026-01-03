@@ -23,6 +23,31 @@ export const createTestOrder = async ({
   const doctor = await Doctor.findById(doctorId);
   if (!doctor) throw new ApiError(404, "Doctor not found");
 
+  // Check for existing pending/partial orders for same patient and same tests
+  const existingOrders = await TestOrder.find({
+    patientId,
+    overallStatus: { $in: ["PENDING", "PARTIAL"] },
+    labId,
+  });
+
+  if (existingOrders.length > 0) {
+    const pendingTestIds = existingOrders.flatMap((order) =>
+      order.tests.map((t) => t.testId.toString())
+    );
+
+    const duplicates = testIds.filter((id) => pendingTestIds.includes(id));
+
+    if (duplicates.length > 0) {
+      // Get names for better error message
+      const duplicateTests = await LabTest.find({ _id: { $in: duplicates } });
+      const testNames = duplicateTests.map((t) => t.testName).join(", ");
+      throw new ApiError(
+        400,
+        `Duplicate Assignment Error: The following tests are already pending for this patient: ${testNames}`
+      );
+    }
+  }
+
   const tests = [];
   let totalAmount = 0;
 

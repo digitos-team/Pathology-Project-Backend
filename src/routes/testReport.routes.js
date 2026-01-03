@@ -18,6 +18,8 @@ import {
   adminMiddleware,
 } from "../middleware/user.middleware.js";
 import { upload } from "../middleware/multer.middleware.js";
+import { validate } from "../middleware/validate.middleware.js";
+import { createTestOrder } from "../validations/testOrder.validation.js";
 
 const router = express.Router();
 
@@ -25,7 +27,7 @@ const router = express.Router();
 router.use(authMiddleware);
 
 // Assign Test (Receptionist/Admin)
-router.post("/createtestorder", assignTestController);
+router.post("/createtestorder", validate(createTestOrder), assignTestController);
 
 // Add Historical/External Report (Receptionist/Admin)
 router.post(

@@ -2,6 +2,7 @@ import Revenue from "../models/revenue.model.js";
 import Expense from "../models/expense.model.js";
 import Doctor from "../models/doctor.model.js";
 import { ApiError } from "../utils/ApiError.js";
+import mongoose from "mongoose";
 
 // Calculate commission and create expense entry
 export const calculateAndRecordCommission = async ({ doctorId, doctorCommissionPercent, totalAmount, billId, labId }) => {
@@ -74,48 +75,85 @@ export const getDoctorCommissionReport = async (doctorId, startDate, endDate) =>
 };
 
 export const getDetailedDoctorCommission = async (doctorId, startDate, endDate) => {
-    // 1. Fetch Revenues with deep population to find bills linked to this doctor
-    // Note: We scan Revenues within date range, then filter by doctor
-    const dateFilter = {};
+    const docObjectId = new mongoose.Types.ObjectId(doctorId);
+
+    const matchStage = {
+        commissionAmount: { $gt: 0 }
+    };
+
     if (startDate && endDate) {
-        dateFilter.createdAt = {
+        matchStage.createdAt = {
             $gte: new Date(new Date(startDate).setHours(0, 0, 0, 0)),
             $lte: new Date(new Date(endDate).setHours(23, 59, 59, 999))
         };
     }
 
-    const revenues = await Revenue.find(dateFilter)
-        .populate({
-            path: 'billId',
-            populate: [
-                {
-                    path: 'testOrderId', // To get doctor
-                    populate: { path: 'doctor' }
-                },
-                {
-                    path: 'patientId', // To get patient name
-                    select: 'fullName'
+    const detailedCommissions = await Revenue.aggregate([
+        { $match: matchStage },
+        {
+            $lookup: {
+                from: "bills",
+                localField: "billId",
+                foreignField: "_id",
+                as: "bill"
+            }
+        },
+        { $unwind: "$bill" },
+        {
+            $lookup: {
+                from: "testorders",
+                localField: "bill.testOrderId",
+                foreignField: "_id",
+                as: "testOrder"
+            }
+        },
+        { $unwind: "$testOrder" },
+        {
+            $match: { "testOrder.doctor": docObjectId }
+        },
+        {
+            $lookup: {
+                from: "patients",
+                localField: "bill.patientId",
+                foreignField: "_id",
+                as: "patient"
+            }
+        },
+        { $unwind: { path: "$patient", preserveNullAndEmptyArrays: true } },
+        {
+            $lookup: {
+                from: "doctors",
+                localField: "testOrder.doctor",
+                foreignField: "_id",
+                as: "doctorDetails"
+            }
+        },
+        { $unwind: { path: "$doctorDetails", preserveNullAndEmptyArrays: true } },
+        {
+            $project: {
+                date: "$createdAt",
+                patientName: { $ifNull: ["$patient.fullName", "Unknown"] },
+                billNumber: "$bill.billNumber",
+                totalBillAmount: "$totalAmount",
+                commissionAmount: "$commissionAmount",
+                doctorName: "$doctorDetails.name",
+                testOrder: {
+                    $reduce: {
+                        input: "$bill.items",
+                        initialValue: "",
+                        in: {
+                            $cond: [
+                                { $eq: ["$$value", ""] },
+                                "$$this.name",
+                                { $concat: ["$$value", ", ", "$$this.name"] }
+                            ]
+                        }
+                    }
                 }
-            ]
-        })
-        .sort({ createdAt: -1 });
-
-    // 2. Filter for specific doctor and format
-    const detailedCommissions = revenues
-        .filter(rev => {
-            const docId = rev.billId?.testOrderId?.doctor?._id?.toString();
-            return docId === doctorId.toString() && rev.commissionAmount > 0;
-            // Also ensure commission > 0
-        })
-        .map(rev => ({
-            date: rev.createdAt,
-            patientName: rev.billId?.patientId?.fullName || "Unknown",
-            billNumber: rev.billId?.billNumber,
-            totalBillAmount: rev.totalAmount,
-            commissionAmount: rev.commissionAmount,
-            doctorName: rev.billId?.testOrderId?.doctor?.name,
-            testOrder: rev.billId?.items?.map(i => i.name).join(", ")
-        }));
+            }
+        },
+        { $sort: { date: -1 } }
+    ]);
 
     return detailedCommissions;
 };

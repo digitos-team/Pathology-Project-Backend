@@ -57,13 +57,13 @@ const patientSchema = new mongoose.Schema(
       enum: ["pending", "generated", "sent", "failed"],
       default: "pending",
     },
-  
+
     email: {
       type: String,
       trim: true,
       index: true, // Single field index
     },
-  
+
     reportPdfPath: { type: String },
     emailSentAt: { type: Date },
   },
@@ -104,5 +104,8 @@ patientSchema.virtual("testHistory", {
   localField: "_id",
   foreignField: "patientId",
 });
+
+// Prevent duplicates: Same Lab + Name + Phone + Age must be unique
+patientSchema.index({ labId: 1, fullName: 1, phone: 1, age: 1 }, { unique: true });
 
 export default mongoose.model("Patient", patientSchema);

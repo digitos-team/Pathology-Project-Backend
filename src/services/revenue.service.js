@@ -19,16 +19,9 @@ export const recordRevenue = async ({ billId, totalAmount, commissionAmount, lab
 
 // Get revenue stats
 export const getRevenueWithPaginationService = async (labId, query) => {
-    const labObjectId = mongoose.Types.ObjectId.isValid(labId)
-        ? new mongoose.Types.ObjectId(labId)
-        : null;
+    const labObjectId = new mongoose.Types.ObjectId(labId);
 
-    const filter = {
-        $or: [
-            { labId: labId },
-            labObjectId ? { labId: labObjectId } : null
-        ].filter(Boolean)
-    };
+    const filter = { labId: labObjectId };
 
     // Date filter
     if (query.startDate && query.endDate) {
@@ -127,11 +120,7 @@ export const getRevenueAnalytics = async ({
     year,
     month // optional (1–12)
 }) => {
-    const labObjectId = mongoose.Types.ObjectId.isValid(labId)
-        ? new mongoose.Types.ObjectId(labId)
-        : null;
-
-    if (!labObjectId) throw new Error("Invalid labId");
+    const labObjectId = new mongoose.Types.ObjectId(labId);
 
     const yearStart = new Date(year, 0, 1);
     const nextYearStart = new Date(year + 1, 0, 1);
@@ -145,10 +134,7 @@ export const getRevenueAnalytics = async ({
     const pipeline = [
         {
             $match: {
-                $or: [
-                    { labId: labId },
-                    { labId: labObjectId }
-                ].filter(f => f.labId !== null),
+                labId: labObjectId,
                 createdAt: { $gte: yearStart, $lt: nextYearStart },
             },
         },

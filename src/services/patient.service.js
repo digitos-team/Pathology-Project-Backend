@@ -1,6 +1,5 @@
 import Patient from "../models/patient.model.js";
 import mongoose from "mongoose";
-
 import PathologyLab from "../models/pathologyLab.model.js";
 
 // Helper to get Lab ID
@@ -17,34 +16,29 @@ export const createPatient = async (data, userId, labIdFromController) => {
   console.log("[SERVICE] createPatient called", { data, userId });
 
   const labId = labIdFromController || (await getLabIdByOwner(userId));
-  const fullName = data.name || data.fullName;
 
-  const existingPatient = await Patient.findOne({
-    labId,
-    fullName,
-    age: data.age,
-    phone: data.phone,
-  });
-
-  if (existingPatient) {
-    throw new Error(
-      "Patient already exists with same name, age, and phone number in this lab"
-    );
-  }
 
   // Handle address if it's a string from frontend
   const addressPayload =
     typeof data.address === "string" ? { street: data.address } : data.address;
 
-  const patient = await Patient.create({
-    ...data,
-    fullName,
-    address: addressPayload,
-    createdBy: userId,
-    labId,
-  });
-
-  return patient;
+  try {
+    const patient = await Patient.create({
+      ...data,
+      fullName,
+      address: addressPayload,
+      createdBy: userId,
+      labId,
+    });
+    return patient;
+  } catch (error) {
+    if (error.code === 11000) {
+      throw new Error(
+        "Patient already exists with same details in this lab"
+      );
+    }
+    throw error;
+  }
 };
 
 //added Pagination for patients
@@ -68,11 +62,9 @@ export const getPatientsByLab = async (labId, options = {}) => {
   const filter = { labId, isActive: true };
 
   // Add search functionality (name or phone)
+  // Optimized to use Text Index instead of slow Regex
   if (search && search.trim() !== "") {
-    filter.$or = [
-      { fullName: { $regex: search.trim(), $options: "i" } },
-      { phone: { $regex: search.trim(), $options: "i" } },
-    ];
+    filter.$text = { $search: search.trim() };
   }
 
   // Filter by gender
@@ -87,17 +79,25 @@ export const getPatientsByLab = async (labId, options = {}) => {
     if (ageMax !== "") filter.age.$lte = parseInt(ageMax);
   }
 
+  // Filter by date range (createdAt)
+  if (options.startDate || options.endDate) {
+    filter.createdAt = {};
+    if (options.startDate) filter.createdAt.$gte = new Date(options.startDate);
+    if (options.endDate) filter.createdAt.$lte = new Date(options.endDate);
+  }
+
   // Build sort object
   const sort = { [sortBy]: sortOrder };
 
   // Execute queries in parallel for better performance
   const [patients, totalCount] = await Promise.all([
     Patient.find(filter)
-      .select("fullName phone age gender address createdAt updatedAt")
+      .select("fullName phone age gender address reportStatus createdAt updatedAt")
       .populate("createdBy", "name email") // If you want to populate createdBy
       .sort(sort)
       .skip(skip)
       .limit(limit)
+
       .lean(), // Use lean() for better performance
     Patient.countDocuments(filter),
   ]);
@@ -141,9 +141,13 @@ export const deletePatient = async (patientId, labId) => {
 export const searchPatient = async (labId, query) => {
   const filter = { labId, isActive: true };
 
+  // Use exact match for phone (indexed field)
   if (query.phone) filter.phone = query.phone;
-  if (query.fullName)
-    filter.fullName = { $regex: query.fullName, $options: "i" };
+
+  // Use $text search for fullName (utilizes text index, fast & secure)
+  if (query.fullName) {
+    filter.$text = { $search: query.fullName };
+  }
 
   return await Patient.find(filter);
 };

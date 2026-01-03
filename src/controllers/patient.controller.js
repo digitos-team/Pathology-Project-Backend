@@ -49,6 +49,8 @@ export const getPatients = asyncHandler(async (req, res) => {
     sortOrder: req.query.sortOrder,
     ageMin: req.query.ageMin,
     ageMax: req.query.ageMax,
+    startDate: req.query.startDate,
+    endDate: req.query.endDate,
   };
 
   const result = await patientService.getPatientsByLab(labId, options);
